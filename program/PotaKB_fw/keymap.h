@@ -32,21 +32,21 @@
 #define KC_NO            0x000
 #define SW_USB_BT        0x401
 
-// ★★★ 新しいカスタムキーコード ★★★
 #define KC_RESET_KM      0x501
 #define KC_REBOOT_DEF    0x502
 
+// JP Keyboard specific keycodes
 #ifndef HID_KEY_INTERNATIONAL1
-  #define HID_KEY_INTERNATIONAL1 0x87 // ¥キー
+  #define HID_KEY_INTERNATIONAL1 0x87
 #endif
 #ifndef HID_KEY_INTERNATIONAL3
-  #define HID_KEY_INTERNATIONAL3 0x89 // _ (アンダースコア) キー
+  #define HID_KEY_INTERNATIONAL3 0x89
 #endif
 #ifndef HID_KEY_LANG1
-  #define HID_KEY_LANG1 0x90 // 半角/全角・漢字キー
+  #define HID_KEY_LANG1 0x90
 #endif
 #ifndef HID_KEY_LANG2
-  #define HID_KEY_LANG2 0x91 // カタカナ・ひらがな・ローマ字キー
+  #define HID_KEY_LANG2 0x91
 #endif
 
 // レイヤー機能用
@@ -86,7 +86,7 @@ const uint16_t layout[NUM_LAYERS][LAYOUT_KEY_COUNT] = {
     // 4段目
     KC_TRNS, HID_KEY_ARROW_LEFT, HID_KEY_ARROW_DOWN, HID_KEY_ARROW_RIGHT, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
     // 5段目
-    KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+    HID_KEY_END, HID_KEY_HOME, HID_KEY_PAGE_UP, HID_KEY_PAGE_DOWN, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
     // 6段目
     KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, L_LOWER,
     // 直接接続キー
