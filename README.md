@@ -1,0 +1,2 @@
+# PotaKB
+PotaKBのファイル群です
