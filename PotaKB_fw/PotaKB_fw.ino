@@ -132,10 +132,11 @@ void applyModeConfig(OperatingMode_t mode);
 void handleSerialCommands();
 
 void setup() {
+  TinyUSBDevice.setID(0x239A, 0x802A);
+  TinyUSBDevice.setManufacturerDescriptor("0Re0_8192");
+  TinyUSBDevice.setProductDescriptor("PotaKB");          // ★ここ！
+
   Serial.begin(115200);
-  TinyUSBDevice.setID(0x239A, 0x8029);
-  TinyUSBDevice.setManufacturerDescriptor("PotaKB v1.3.5");
-  TinyUSBDevice.setProductDescriptor("PotaKB");
   
   InternalFS.begin(); 
   loadDefaultConfig();
@@ -242,8 +243,14 @@ void handleSerialCommands() {
       if (keymapFile) {
         keymapFile.write(keymap_buffer, sizeof(keymap_buffer));
         keymapFile.close();
+        Serial.println("OK");  // 書き込み成功を通知
+        Serial.flush();
+      } else {
+        Serial.println("ERROR");  // エラーを通知
+        Serial.flush();
       }
       serialState = STATE_IDLE;
+      keymap_buffer_offset = 0;
     }
   } else if (serialState == STATE_RECEIVING_CONFIG) {
     size_t bytesToRead = min(len, sizeof(config_buffer) - config_buffer_offset);
@@ -254,19 +261,47 @@ void handleSerialCommands() {
       if (currentConfig.magic == 0x504F5441) {
         saveConfigToFlash();
         applyConfig();
+        Serial.println("OK");  // 書き込み成功を通知
+        Serial.flush();
+      } else {
+        Serial.println("ERROR");  // マジックナンバー不正
+        Serial.flush();
       }
       serialState = STATE_IDLE;
+      config_buffer_offset = 0;
     }
   } else {
     while (Serial.available()) {
       char c = Serial.read();
       if (c == '\n') {
-        if (serialCmdBuffer.startsWith("READ_KEYMAP")) Serial.write((uint8_t*)current_keymap, sizeof(current_keymap));
-        else if (serialCmdBuffer.startsWith("WRITE_KEYMAP")) { serialState = STATE_RECEIVING_KEYMAP; keymap_buffer_offset = 0; }
-        else if (serialCmdBuffer.startsWith("READ_CONFIG")) Serial.write((uint8_t*)&currentConfig, sizeof(Config));
-        else if (serialCmdBuffer.startsWith("WRITE_CONFIG")) { serialState = STATE_RECEIVING_CONFIG; config_buffer_offset = 0; }
-        else if (serialCmdBuffer.startsWith("GET_BATTERY")) { updateBatteryLevel(); Serial.print("BATTERY:"); Serial.println(lastNotifiedBatteryTier); }
-        else if (serialCmdBuffer.startsWith("REBOOT")) { delay(200); NVIC_SystemReset(); }
+        if (serialCmdBuffer.startsWith("READ_KEYMAP")) {
+          Serial.write((uint8_t*)current_keymap, sizeof(current_keymap));
+          Serial.flush();
+        }
+        else if (serialCmdBuffer.startsWith("WRITE_KEYMAP")) { 
+          serialState = STATE_RECEIVING_KEYMAP; 
+          keymap_buffer_offset = 0; 
+        }
+        else if (serialCmdBuffer.startsWith("READ_CONFIG")) {
+          Serial.write((uint8_t*)&currentConfig, sizeof(Config));
+          Serial.flush();
+        }
+        else if (serialCmdBuffer.startsWith("WRITE_CONFIG")) { 
+          serialState = STATE_RECEIVING_CONFIG; 
+          config_buffer_offset = 0; 
+        }
+        else if (serialCmdBuffer.startsWith("GET_BATTERY")) { 
+          updateBatteryLevel(); 
+          Serial.print("BATTERY:"); 
+          Serial.println(lastNotifiedBatteryTier);
+          Serial.flush();
+        }
+        else if (serialCmdBuffer.startsWith("REBOOT")) { 
+          Serial.println("OK");  // 再起動を確認
+          Serial.flush();
+          delay(100);  // シリアル送信完了を待つ
+          NVIC_SystemReset(); 
+        }
         serialCmdBuffer = "";
       } else {
         serialCmdBuffer += c;
