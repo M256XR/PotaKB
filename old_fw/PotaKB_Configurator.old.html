@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>PotaKB Keymap Configurator v27 (Download Fix)</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; display: flex; flex-direction: column; gap: 15px; padding: 10px; background-color: #f4f4f9; }
+        #top-panel { display: flex; gap: 15px; width: 100%; flex-wrap: wrap; }
+        .config-section { border: 1px solid #ccc; padding: 15px; border-radius: 8px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        #keyboard-area { flex: 1 1 780px; min-width: 300px; }
+        #settings-area { flex: 0 0 280px; min-width: 280px; }
+        #palette-area { width: calc(100% - 30px); }
+        #keyboard-container { padding: 10px; }
+        .key-row { display: flex; gap: 5px; margin-bottom: 5px; align-items: center; position: relative; height: 44px; }
+        .key { height: 42px; border: 1px solid #aaa; border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; cursor: pointer; background-color: #f0f0f0; user-select: none; transition: all 0.2s; box-shadow: 0 2px 0 #ccc; flex-shrink: 0; }
+        .key:hover { background-color: #dcedff; border-color: #007bff; }
+        .key.selected { border-color: #dc3545; background-color: #f8d7da; box-shadow: 0 2px 0 #e49197; outline: 2px solid #dc3545; }
+        .key.waiting-capture { background-color: #d4edda; border-color: #28a745; outline: 2px solid #28a745; box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); }
+        .key-name { font-size: 8px; color: #666; }
+        .key-code { font-weight: bold; }
+        #tab-buttons-container { border-bottom: 1px solid #dee2e6; margin-bottom: 10px; }
+        .tab-button { background: none; border: none; padding: 10px 15px; cursor: pointer; font-size: 14px; border-radius: 5px 5px 0 0; margin-bottom: -1px; }
+        .tab-button.active { background-color: #fff; border: 1px solid #dee2e6; border-bottom: 1px solid #fff; font-weight: bold; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .palette-keys { display: flex; flex-wrap: wrap; gap: 5px; }
+        .palette-key { padding: 5px 8px; font-size: 12px; background-color: #e9ecef; border: 1px solid #ced4da; border-radius: 4px; cursor: pointer; }
+        .palette-key:hover { background-color: #007bff; color: white; border-color: #0056b3; }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        #settings-container input { width: 60px; text-align: right; margin-left: 10px; }
+        button, label[for="file-importer"] { padding: 10px 15px; border-radius: 5px; border: none; cursor: pointer; font-size: 14px; margin-top: 5px; }
+        #generate-button { background-color: #5a6268; color: white; width: 100%; }
+        label[for="file-importer"] { background-color: #6c757d; color: white; display: block; text-align: center; margin-bottom: 10px; }
+        #connect-button { background-color: #007bff; color: white; width: 100%; }
+        #save-to-keyboard-button { background-color: #28a745; color: white; width: 100%; margin-top: 10px; }
+        #bt-status { margin-top: 10px; font-size: 12px; text-align: center; padding: 8px; border-radius: 4px; background-color: #f8f9fa; }
+        input[type="file"] { display: none; }
+        .bt-help { font-size: 11px; color: #666; margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; }
+        .debug-info { font-size: 10px; color: #999; margin-top: 5px; padding: 5px; background-color: #f0f0f0; border-radius: 3px; max-height: 100px; overflow-y: auto; }
+        #palette-description { font-style: italic; color: #555; margin-top: 0; margin-bottom: 10px; font-size: 13px; }
+        #key-description { min-height: 1.2em; font-size: 12px; color: #333; background-color: #f8f9fa; padding: 5px 8px; border-radius: 4px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div id="top-panel">
+        <div id="keyboard-area" class="config-section">
+            <h2>PotaKB Layout Editor</h2>
+            <div>
+                Layer: <select id="layer-selector"><option value="0">Default</option><option value="1">Lower</option></select>
+                <label style="margin-left: 20px; font-size: 12px;">
+                    <input type="checkbox" id="jis-layout-toggle"> 日本語配列で表示
+                </label>
+                <small style="display: block; margin-top: 5px;">(キーをダブルクリックして物理キーを押すと、キーコードを割り当てられます)</small>
+            </div>
+            <div id="keyboard-container"></div>
+        </div>
+        <div id="settings-area" class="config-section">
+            <h4>File & Settings</h4>
+            <input type="file" id="file-importer" accept=".h">
+            <label for="file-importer">Load keymap.h</label>
+            <button id="generate-button">Download keymap.h</button>
+            <hr>
+            <h4>Bluetooth Update</h4>
+            <button id="connect-button">Connect via Bluetooth</button>
+            <button id="save-to-keyboard-button" disabled>Save to Keyboard via BT</button>
+            <div id="bt-status">Status: Disconnected</div>
+            <div class="bt-help">
+                <strong>接続できない場合:</strong><br>
+                1. キーボードの電源を入れ直す<br>
+                2. Bluetoothモードになっているか確認<br>
+                3. 他のデバイスと接続していないか確認<br>
+                4. ブラウザはChrome/Edgeを使用<br>
+                5. HTTPSで開いているか確認
+                <hr style="margin: 8px 0;">
+                <strong>特殊なキーについて:</strong><br>
+                - <strong>Mode:</strong> USB/BT接続を切り替える必須キーです。<br>
+                - <strong>Reset KM:</strong> 保存されたキーマップを完全に消去して再起動します。<br>
+                - <strong>Boot DEF:</strong> キーマップを消さずに、一時的に初期設定で再起動します。
+            </div>
+            <div class="debug-info" id="debug-log"></div>
+            <hr>
+            <div id="settings-container">
+                <div class="setting-item"><label>MOUSE_HIGH_SPEED:</label><input type="number" step="0.1" id="MOUSE_HIGH_SPEED"></div>
+                <div class="setting-item"><label>MOUSE_LOW_SPEED:</label><input type="number" step="0.1" id="MOUSE_LOW_SPEED"></div>
+                <div class="setting-item"><label>MOUSE_ACCEL_THRESHOLD:</label><input type="number" id="MOUSE_ACCEL_THRESHOLD"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="palette-area" class="config-section">
+        <h4>Keycode Palette <small>(Click a key on the layout, then click a button below)</small></h4>
+        <p id="palette-description"></p>
+        <div id="tab-buttons-container"></div>
+        <div id="tab-content-container"></div>
+        <p id="key-description">&nbsp;</p>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const KEYCODES = { "Special": ["KC_NO", "KC_TRNS", "L_LOWER", "SW_USB_BT", "KC_RESET_KM", "KC_REBOOT_DEF"], "Alphabet": [...Array(26)].map((_, i) => `HID_KEY_${String.fromCharCode(65 + i)}`), "Numbers": [...Array(10)].map((_, i) => `HID_KEY_${(i + 1) % 10}`), "Function": [...Array(12)].map((_, i) => `HID_KEY_F${i + 1}`), "Modifiers": ["HID_KEY_CONTROL_LEFT", "HID_KEY_SHIFT_LEFT", "HID_KEY_ALT_LEFT", "HID_KEY_GUI_LEFT", "HID_KEY_CONTROL_RIGHT", "HID_KEY_SHIFT_RIGHT", "HID_KEY_ALT_RIGHT", "HID_KEY_GUI_RIGHT"], "Control & Whitespace": ["HID_KEY_ENTER", "HID_KEY_ESCAPE", "HID_KEY_BACKSPACE", "HID_KEY_DELETE", "HID_KEY_TAB", "HID_KEY_SPACE", "HID_KEY_APPLICATION", "HID_KEY_CAPS_LOCK"], "Navigation": ["HID_KEY_ARROW_RIGHT", "HID_KEY_ARROW_LEFT", "HID_KEY_ARROW_DOWN", "HID_KEY_ARROW_UP", "HID_KEY_INSERT", "HID_KEY_HOME", "HID_KEY_END", "HID_KEY_PAGE_UP", "HID_KEY_PAGE_DOWN", "HID_KEY_PRINT_SCREEN", "HID_KEY_SCROLL_LOCK", "HID_KEY_PAUSE"], "Symbols (US)": ["HID_KEY_MINUS", "HID_KEY_EQUAL", "HID_KEY_BRACKET_LEFT", "HID_KEY_BRACKET_RIGHT", "HID_KEY_BACKSLASH", "HID_KEY_SEMICOLON", "HID_KEY_APOSTROPHE", "HID_KEY_GRAVE", "HID_KEY_COMMA", "HID_KEY_PERIOD", "HID_KEY_SLASH"], "JP Layout": ["HID_KEY_LANG1", "HID_KEY_LANG2", "HID_KEY_INTERNATIONAL1", "HID_KEY_INTERNATIONAL3"], "Mouse": ["KC_MS_BTN1", "KC_MS_BTN2", "KC_MS_BTN3", "KC_MS_BTN4", "KC_MS_BTN5", "KC_MS_UP", "KC_MS_DOWN", "KC_MS_LEFT", "KC_MS_RIGHT"] };
+    const CATEGORY_DESCRIPTIONS = { "Special": "レイヤー切り替えやモード変更、プロファイルリセットなど、キーボードの特殊機能を制御します。", "Alphabet": "AからZまでのアルファベットキーです。", "Numbers": "0から9までの数字キーです。", "Function": "F1からF12までのファンクションキーです。", "Modifiers": "Ctrl、Shift、Alt、GUI (Windows/Command) などの修飾キーです。", "Control & Whitespace": "Enter、Esc、スペースキーなど、入力制御や空白に関連するキーです。", "Navigation": "矢印キーやHome、Endなど、カーソル移動やページ操作を行うキーです。", "Symbols (US)": "US配列における一般的な記号キーです。 (, ; [ ]など)", "JP Layout": "日本語配列特有のキーです。（半角/全角、無変換、変換、カタカナひらがな等）", "Mouse": "マウスのクリックやカーソル移動をキーに割り当てます。" };
+    const KEYCODE_DESCRIPTIONS = { "KC_NO": "No Action: このキーを押しても何も起こりません。", "KC_TRNS": "Transparent: 下のレイヤーのキーを透過させます。 (レイヤー1以上で有効)", "L_LOWER": "Lower Layer: 押している間、レイヤー1 (Lower) に切り替えます。", "SW_USB_BT": "Mode Switch: USB接続とBluetooth接続を切り替えます。", "KC_RESET_KM": "Reset Keymap: 保存されたカスタムキーマップを完全に消去し、初期状態で再起動します。", "KC_REBOOT_DEF": "Reboot to Default: カスタムキーマップを維持したまま、一時的に初期設定で再起動します。", "HID_KEY_LANG1": "半角/全角・漢字キー (JP)", "HID_KEY_LANG2": "カタカナ・ひらがな・ローマ字キー (JP)", "HID_KEY_INTERNATIONAL1": "￥キー (JP)", "HID_KEY_INTERNATIONAL3": "＿ (アンダースコア) キー (JP)" };
+    const JIS_KEY_MAP = { 'HID_KEY_GRAVE': '半/全', 'HID_KEY_MINUS': 'ー', 'HID_KEY_EQUAL': '^', 'HID_KEY_BRACKET_LEFT': '@', 'HID_KEY_BRACKET_RIGHT': '[', 'HID_KEY_BACKSLASH': ']', 'HID_KEY_SEMICOLON': ';', 'HID_KEY_APOSTROPHE': ':', 'HID_KEY_INTERNATIONAL1': '¥', 'HID_KEY_INTERNATIONAL3': '\\' };
+    const EVENT_CODE_TO_KEYCODE_MAP = { 'KeyA':'HID_KEY_A','KeyB':'HID_KEY_B','KeyC':'HID_KEY_C','KeyD':'HID_KEY_D','KeyE':'HID_KEY_E','KeyF':'HID_KEY_F','KeyG':'HID_KEY_G','KeyH':'HID_KEY_H','KeyI':'HID_KEY_I','KeyJ':'HID_KEY_J','KeyK':'HID_KEY_K','KeyL':'HID_KEY_L','KeyM':'HID_KEY_M','KeyN':'HID_KEY_N','KeyO':'HID_KEY_O','KeyP':'HID_KEY_P','KeyQ':'HID_KEY_Q','KeyR':'HID_KEY_R','KeyS':'HID_KEY_S','KeyT':'HID_KEY_T','KeyU':'HID_KEY_U','KeyV':'HID_KEY_V','KeyW':'HID_KEY_W','KeyX':'HID_KEY_X','KeyY':'HID_KEY_Y','KeyZ':'HID_KEY_Z', 'Digit1':'HID_KEY_1','Digit2':'HID_KEY_2','Digit3':'HID_KEY_3','Digit4':'HID_KEY_4','Digit5':'HID_KEY_5','Digit6':'HID_KEY_6','Digit7':'HID_KEY_7','Digit8':'HID_KEY_8','Digit9':'HID_KEY_9','Digit0':'HID_KEY_0', 'F1':'HID_KEY_F1','F2':'HID_KEY_F2','F3':'HID_KEY_F3','F4':'HID_KEY_F4','F5':'HID_KEY_F5','F6':'HID_KEY_F6','F7':'HID_KEY_F7','F8':'HID_KEY_F8','F9':'HID_KEY_F9','F10':'HID_KEY_F10','F11':'HID_KEY_F11','F12':'HID_KEY_F12', 'Enter':'HID_KEY_ENTER','Escape':'HID_KEY_ESCAPE','Backspace':'HID_KEY_BACKSPACE','Tab':'HID_KEY_TAB','Space':'HID_KEY_SPACE','Minus':'HID_KEY_MINUS','Equal':'HID_KEY_EQUAL','BracketLeft':'HID_KEY_BRACKET_LEFT','BracketRight':'HID_KEY_BRACKET_RIGHT','Backslash':'HID_KEY_BACKSLASH','Semicolon':'HID_KEY_SEMICOLON','Quote':'HID_KEY_APOSTROPHE','Backquote':'HID_KEY_GRAVE','Comma':'HID_KEY_COMMA','Period':'HID_KEY_PERIOD','Slash':'HID_KEY_SLASH', 'CapsLock':'HID_KEY_CAPS_LOCK','ScrollLock':'HID_KEY_SCROLL_LOCK','Pause':'HID_KEY_PAUSE','Insert':'HID_KEY_INSERT','Home':'HID_KEY_HOME','PageUp':'HID_KEY_PAGE_UP','Delete':'HID_KEY_DELETE','End':'HID_KEY_END','PageDown':'HID_KEY_PAGE_DOWN', 'ArrowRight':'HID_KEY_ARROW_RIGHT','ArrowLeft':'HID_KEY_ARROW_LEFT','ArrowDown':'HID_KEY_ARROW_DOWN','ArrowUp':'HID_KEY_ARROW_UP', 'ControlLeft':'HID_KEY_CONTROL_LEFT','ShiftLeft':'HID_KEY_SHIFT_LEFT','AltLeft':'HID_KEY_ALT_LEFT','MetaLeft':'HID_KEY_GUI_LEFT', 'ControlRight':'HID_KEY_CONTROL_RIGHT','ShiftRight':'HID_KEY_SHIFT_RIGHT','AltRight':'HID_KEY_ALT_RIGHT','MetaRight':'HID_KEY_GUI_RIGHT', 'IntlYen': 'HID_KEY_INTERNATIONAL1', 'IntlRo': 'HID_KEY_INTERNATIONAL3' };
+    const physical_layout_order_name = [ "sw1", "sw62", "sw2", "sw5", "sw9", "sw13", "sw17", "sw21", "sw25", "sw30", "sw35", "sw40", "sw45", "sw50", "sw55", "sw59", "sw63", "sw3", "sw6", "sw10", "sw14", "sw18", "sw22", "sw26", "sw31", "sw36", "sw41", "sw46", "sw51", "sw56", "sw60", "sw4", "sw7", "sw11", "sw15", "sw19", "sw23", "sw27", "sw32", "sw37", "sw42", "sw47", "sw52", "sw57", "sw61", "sw8", "sw12", "sw16", "sw20", "sw24", "sw28", "sw33", "sw38", "sw43", "sw48", "sw53", "sw58", "sw29", "sw34", "sw39", "sw44", "sw49", "sw54", "D10", "D6" ];
+    let keymapData = [
+      [ 'KC_MS_BTN1', 'KC_MS_BTN2', 'SW_USB_BT', 'KC_NO', 'KC_NO', 'KC_NO', 'HID_KEY_4', 'HID_KEY_5', 'HID_KEY_6', 'HID_KEY_7', 'HID_KEY_8', 'HID_KEY_9', 'HID_KEY_0', 'HID_KEY_MINUS', 'HID_KEY_EQUAL', 'HID_KEY_BACKSPACE', 'HID_KEY_INSERT', 'HID_KEY_TAB', 'HID_KEY_Q', 'HID_KEY_W', 'HID_KEY_E', 'HID_KEY_R', 'HID_KEY_T', 'HID_KEY_Y', 'HID_KEY_U', 'HID_KEY_I', 'HID_KEY_O', 'HID_KEY_P', 'HID_KEY_BRACKET_LEFT', 'HID_KEY_BRACKET_RIGHT', 'HID_KEY_BACKSLASH', 'HID_KEY_CAPS_LOCK', 'HID_KEY_A', 'HID_KEY_S', 'HID_KEY_D', 'HID_KEY_F', 'HID_KEY_G', 'HID_KEY_H', 'HID_KEY_J', 'HID_KEY_K', 'HID_KEY_L', 'HID_KEY_SEMICOLON', 'HID_KEY_APOSTROPHE', 'HID_KEY_ENTER', 'HID_KEY_DELETE', 'HID_KEY_SHIFT_LEFT', 'HID_KEY_Z', 'HID_KEY_X', 'HID_KEY_C', 'HID_KEY_V', 'HID_KEY_B', 'HID_KEY_N', 'HID_KEY_M', 'HID_KEY_COMMA', 'HID_KEY_PERIOD', 'HID_KEY_SLASH', 'HID_KEY_SHIFT_RIGHT', 'HID_KEY_CONTROL_LEFT', 'HID_KEY_GUI_LEFT', 'HID_KEY_ALT_LEFT', 'HID_KEY_SPACE', 'HID_KEY_ALT_RIGHT', 'L_LOWER', 'HID_KEY_ENTER', 'HID_KEY_BACKSPACE'],
+      [ 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'HID_KEY_F1', 'HID_KEY_F2', 'HID_KEY_F3', 'HID_KEY_F4', 'HID_KEY_F5', 'HID_KEY_F6', 'HID_KEY_F7', 'HID_KEY_F8', 'HID_KEY_F9', 'HID_KEY_F10', 'HID_KEY_F11', 'HID_KEY_F12', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_MS_BTN1', 'KC_MS_BTN2', 'KC_MS_BTN3', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'KC_TRNS', 'L_LOWER', 'KC_TRNS', 'KC_TRNS']
+    ];
+    const KEYCODE_DISPLAY_MAP = {'KC_MS_BTN1': 'L Click', 'KC_MS_BTN2': 'R Click', 'KC_MS_BTN3': 'M Click', 'KC_MS_BTN4': 'Back', 'KC_MS_BTN5': 'Fwd', 'KC_MS_UP': 'M Up', 'KC_MS_DOWN': 'M Down', 'KC_MS_LEFT': 'M Left', 'KC_MS_RIGHT': 'M Right', 'HID_KEY_CONTROL_LEFT': 'L Ctrl', 'HID_KEY_SHIFT_LEFT': 'L Shift', 'HID_KEY_ALT_LEFT': 'L Alt', 'HID_KEY_GUI_LEFT': 'L GUI', 'HID_KEY_CONTROL_RIGHT': 'R Ctrl', 'HID_KEY_SHIFT_RIGHT': 'R Shift', 'HID_KEY_ALT_RIGHT': 'R Alt', 'HID_KEY_GUI_RIGHT': 'R GUI', 'HID_KEY_ENTER': 'Enter', 'HID_KEY_ESCAPE': 'Esc', 'HID_KEY_BACKSPACE': 'BSPC', 'HID_KEY_DELETE': 'Del', 'HID_KEY_TAB': 'Tab', 'HID_KEY_SPACE': 'Space', 'HID_KEY_APPLICATION': 'App', 'HID_KEY_CAPS_LOCK': 'Caps', 'HID_KEY_ARROW_RIGHT': '→', 'HID_KEY_ARROW_LEFT': '←', 'HID_KEY_ARROW_DOWN': '↓', 'HID_KEY_ARROW_UP': '↑', 'HID_KEY_INSERT': 'Ins', 'HID_KEY_HOME': 'Home', 'HID_KEY_END': 'End', 'HID_KEY_PAGE_UP': 'PgUp', 'HID_KEY_PAGE_DOWN': 'PgDn', 'HID_KEY_PRINT_SCREEN': 'PrtSc', 'HID_KEY_SCROLL_LOCK': 'ScLk', 'HID_KEY_PAUSE': 'Pause', 'HID_KEY_MINUS': '-', 'HID_KEY_EQUAL': '=', 'HID_KEY_BRACKET_LEFT': '[', 'HID_KEY_BRACKET_RIGHT': ']', 'HID_KEY_BACKSLASH': '\\', 'HID_KEY_SEMICOLON': ';', 'HID_KEY_APOSTROPHE': "'", 'HID_KEY_GRAVE': '`', 'HID_KEY_COMMA': ',', 'HID_KEY_PERIOD': '.', 'HID_KEY_SLASH': '/', 'KC_TRNS': '▽', 'KC_NO': '×', 'L_LOWER': 'Lower', 'SW_USB_BT': 'Mode', 'KC_RESET_KM': 'Reset KM', 'KC_REBOOT_DEF': 'Boot DEF', 'HID_KEY_LANG1': 'Lang1', 'HID_KEY_LANG2': 'Lang2', 'HID_KEY_INTERNATIONAL1': 'Intl1', 'HID_KEY_INTERNATIONAL3': 'Intl3'};
+    const KEYCODE_TO_VALUE_MAP = { "KC_NO": 0, "KC_TRNS": 0, "HID_KEY_A": 4, "HID_KEY_B": 5, "HID_KEY_C": 6, "HID_KEY_D": 7, "HID_KEY_E": 8, "HID_KEY_F": 9, "HID_KEY_G": 10, "HID_KEY_H": 11, "HID_KEY_I": 12, "HID_KEY_J": 13, "HID_KEY_K": 14, "HID_KEY_L": 15, "HID_KEY_M": 16, "HID_KEY_N": 17, "HID_KEY_O": 18, "HID_KEY_P": 19, "HID_KEY_Q": 20, "HID_KEY_R": 21, "HID_KEY_S": 22, "HID_KEY_T": 23, "HID_KEY_U": 24, "HID_KEY_V": 25, "HID_KEY_W": 26, "HID_KEY_X": 27, "HID_KEY_Y": 28, "HID_KEY_Z": 29, "HID_KEY_1": 30, "HID_KEY_2": 31, "HID_KEY_3": 32, "HID_KEY_4": 33, "HID_KEY_5": 34, "HID_KEY_6": 35, "HID_KEY_7": 36, "HID_KEY_8": 37, "HID_KEY_9": 38, "HID_KEY_0": 39, "HID_KEY_ENTER": 40, "HID_KEY_ESCAPE": 41, "HID_KEY_BACKSPACE": 42, "HID_KEY_TAB": 43, "HID_KEY_SPACE": 44, "HID_KEY_MINUS": 45, "HID_KEY_EQUAL": 46, "HID_KEY_BRACKET_LEFT": 47, "HID_KEY_BRACKET_RIGHT": 48, "HID_KEY_BACKSLASH": 49, "HID_KEY_SEMICOLON": 51, "HID_KEY_APOSTROPHE": 52, "HID_KEY_GRAVE": 53, "HID_KEY_COMMA": 54, "HID_KEY_PERIOD": 55, "HID_KEY_SLASH": 56, "HID_KEY_CAPS_LOCK": 57, "HID_KEY_F1": 58, "HID_KEY_F2": 59, "HID_KEY_F3": 60, "HID_KEY_F4": 61, "HID_KEY_F5": 62, "HID_KEY_F6": 63, "HID_KEY_F7": 64, "HID_KEY_F8": 65, "HID_KEY_F9": 66, "HID_KEY_F10": 67, "HID_KEY_F11": 68, "HID_KEY_F12": 69, "HID_KEY_PRINT_SCREEN": 70, "HID_KEY_SCROLL_LOCK": 71, "HID_KEY_PAUSE": 72, "HID_KEY_INSERT": 73, "HID_KEY_HOME": 74, "HID_KEY_PAGE_UP": 75, "HID_KEY_DELETE": 76, "HID_KEY_END": 77, "HID_KEY_PAGE_DOWN": 78, "HID_KEY_ARROW_RIGHT": 79, "HID_KEY_ARROW_LEFT": 80, "HID_KEY_ARROW_DOWN": 81, "HID_KEY_ARROW_UP": 82, "HID_KEY_CONTROL_LEFT": 224, "HID_KEY_SHIFT_LEFT": 225, "HID_KEY_ALT_LEFT": 226, "HID_KEY_GUI_LEFT": 227, "HID_KEY_CONTROL_RIGHT": 228, "HID_KEY_SHIFT_RIGHT": 229, "HID_KEY_ALT_RIGHT": 230, "HID_KEY_GUI_RIGHT": 231, "HID_KEY_APPLICATION": 101, "HID_KEY_LANG1": 144, "HID_KEY_LANG2": 145, "HID_KEY_INTERNATIONAL1": 135, "HID_KEY_INTERNATIONAL3": 137, "KC_MS_UP": 513, "KC_MS_DOWN": 514, "KC_MS_LEFT": 515, "KC_MS_RIGHT": 516, "KC_MS_BTN1": 517, "KC_MS_BTN2": 518, "KC_MS_BTN3": 519, "KC_MS_BTN4": 520, "KC_MS_BTN5": 521, "L_LOWER": 769, "SW_USB_BT": 1025, "KC_RESET_KM": 1281, "KC_REBOOT_DEF": 1282 };
+    const KEYMAP_SERVICE_UUID = 'adaf0001-c332-42a8-93bd-25e905756cb8';
+    const KEYMAP_CHAR_UUID = 'adaf0002-c332-42a8-93bd-25e905756cb8';
+    let currentLayer = 0; let selectedKeyIndices = new Set(); let keymapCharacteristic = null; let bluetoothDevice = null; let isWaitingForKeypress = false; let targetKeyIndexForCapture = null;
+    
+    const keyboardContainer = document.getElementById('keyboard-container');
+    const layerSelector = document.getElementById('layer-selector');
+    const generateButton = document.getElementById('generate-button');
+    const fileImporter = document.getElementById('file-importer');
+    const tabButtonsContainer = document.getElementById('tab-buttons-container');
+    const tabContentContainer = document.getElementById('tab-content-container');
+    const paletteDescription = document.getElementById('palette-description');
+    const keyDescription = document.getElementById('key-description');
+    const connectButton = document.getElementById('connect-button');
+    const saveToKeyboardButton = document.getElementById('save-to-keyboard-button');
+    const btStatus = document.getElementById('bt-status');
+    const debugLog = document.getElementById('debug-log');
+    const jisLayoutToggle = document.getElementById('jis-layout-toggle');
+
+    function addDebugLog(message) { const timestamp = new Date().toLocaleTimeString(); debugLog.innerHTML = `[${timestamp}] ${message}<br>` + debugLog.innerHTML; }
+    
+    function getDisplayKeycode(keycode) {
+        const useJisLayout = jisLayoutToggle.checked;
+        if (useJisLayout && JIS_KEY_MAP[keycode]) { return JIS_KEY_MAP[keycode]; }
+        if (KEYCODE_DISPLAY_MAP[keycode]) { return KEYCODE_DISPLAY_MAP[keycode]; }
+        if (keycode.startsWith('HID_KEY_')) {
+            const key = keycode.replace('HID_KEY_', '');
+            if (key.startsWith('F') && !isNaN(key.substring(1))) { return key; }
+            return key.length === 1 ? key : key.charAt(0);
+        }
+        return keycode;
+    }
+    
+    function renderKeyboard() {
+        const physicalLayoutJSON = [ [{"w":1.5},"sw1",{"x":12.5,"w":1.5},"sw62"], ["sw2","sw5","sw9","sw13","sw17","sw21","sw25","sw30","sw35","sw40","sw45","sw50","sw55","sw59","sw63"], [{"w":1.5},"sw3","sw6","sw10","sw14","sw18","sw22","sw26","sw31","sw36","sw41","sw46","sw51","sw56",{"w":1.5},"sw60"], [{"w":1.75},"sw4","sw7","sw11","sw15","sw19","sw23","sw27","sw32","sw37","sw42","sw47","sw52","sw57",{"w":1.25},"sw61"], [{"x":2.1},"sw8","sw12","sw16","sw20","sw24","sw28","sw33","sw38","sw43","sw48","sw53",{"w":1.5},"sw58"], [{"y":-0.5},"D10","D6"], [{"y":-0.5,"x":6.25,"w":2.5},"sw29","sw34","sw39","sw44","sw49","sw54"] ];
+        keyboardContainer.innerHTML = '';
+        const baseKeySize = 42; const baseGap = 5;
+        physicalLayoutJSON.forEach(rowItems => {
+            const row = document.createElement('div'); row.className = 'key-row';
+            let currentProps = { w: 1, x: 0, y: 0 };
+            rowItems.forEach(item => {
+                if (typeof item === 'object' && item !== null) {
+                    Object.assign(currentProps, item);
+                    if (currentProps.y !== 0) { row.style.marginTop = `${currentProps.y * (baseKeySize + baseGap)}px`; }
+                } else if (typeof item === 'string') {
+                    const keyName = item;
+                    const keyIndex = physical_layout_order_name.indexOf(keyName);
+                    if (keyIndex === -1) { return; }
+                    const keycode = keymapData[currentLayer][keyIndex];
+                    const keyEl = document.createElement('div'); keyEl.className = 'key'; keyEl.dataset.index = keyIndex;
+                    if (selectedKeyIndices.has(keyIndex)) { keyEl.classList.add('selected'); }
+                    const codeEl = document.createElement('div'); codeEl.className = 'key-code';
+                    if (isWaitingForKeypress && keyIndex === targetKeyIndexForCapture) {
+                        keyEl.classList.add('waiting-capture');
+                        codeEl.textContent = 'PRESS KEY';
+                    } else {
+                        codeEl.textContent = getDisplayKeycode(keycode);
+                    }
+                    keyEl.style.width = `${baseKeySize * currentProps.w + baseGap * (currentProps.w - 1)}px`;
+                    if (currentProps.x > 0) { keyEl.style.marginLeft = `${currentProps.x * (baseKeySize + baseGap)}px`; }
+                    const nameEl = document.createElement('div'); nameEl.className = 'key-name'; nameEl.textContent = keyName;
+                    keyEl.appendChild(nameEl); keyEl.appendChild(codeEl);
+                    keyEl.addEventListener('click', (e) => { const idx = parseInt(e.currentTarget.dataset.index); if (e.ctrlKey || e.metaKey) { selectedKeyIndices.has(idx) ? selectedKeyIndices.delete(idx) : selectedKeyIndices.add(idx); } else { selectedKeyIndices.clear(); selectedKeyIndices.add(idx); } renderKeyboard(); });
+                    keyEl.addEventListener('dblclick', (e) => { const idx = parseInt(e.currentTarget.dataset.index); isWaitingForKeypress = true; targetKeyIndexForCapture = idx; renderKeyboard(); });
+                    row.appendChild(keyEl);
+                    currentProps = { w: 1, x: 0, y: currentProps.y };
+                }
+            });
+            keyboardContainer.appendChild(row);
+        });
+    }
+
+    function renderPalette() {
+        tabButtonsContainer.innerHTML = ''; tabContentContainer.innerHTML = '';
+        Object.keys(KEYCODES).forEach((category, idx) => {
+            const btn = document.createElement('button'); btn.className = 'tab-button'; btn.textContent = category;
+            if (idx === 0) { btn.classList.add('active'); paletteDescription.textContent = CATEGORY_DESCRIPTIONS[category]; }
+            btn.addEventListener('click', () => { document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); btn.classList.add('active'); document.getElementById(`tab-${idx}`).classList.add('active'); paletteDescription.textContent = CATEGORY_DESCRIPTIONS[category]; });
+            tabButtonsContainer.appendChild(btn);
+            const content = document.createElement('div'); content.className = 'tab-content'; content.id = `tab-${idx}`;
+            if (idx === 0) content.classList.add('active');
+            const keysContainer = document.createElement('div'); keysContainer.className = 'palette-keys';
+            KEYCODES[category].forEach(keycode => {
+                const keyBtn = document.createElement('button'); keyBtn.className = 'palette-key'; keyBtn.textContent = getDisplayKeycode(keycode); keyBtn.title = keycode;
+                keyBtn.addEventListener('mouseenter', () => { keyDescription.innerHTML = KEYCODE_DESCRIPTIONS[keycode] || '&nbsp;'; });
+                keyBtn.addEventListener('mouseleave', () => { keyDescription.innerHTML = '&nbsp;'; });
+                keyBtn.addEventListener('click', () => { if (selectedKeyIndices.size === 0) { alert('Please select at least one key on the layout first!'); return; } selectedKeyIndices.forEach(idx => { keymapData[currentLayer][idx] = keycode; }); renderKeyboard(); });
+                keysContainer.appendChild(keyBtn);
+            });
+            content.appendChild(keysContainer);
+            tabContentContainer.appendChild(content);
+        });
+    }
+
+    function handleKeyCapture(e) {
+        if (!isWaitingForKeypress) return;
+        e.preventDefault();
+        if (e.code === 'Escape') { isWaitingForKeypress = false; targetKeyIndexForCapture = null; renderKeyboard(); return; }
+        const mappedKeycode = EVENT_CODE_TO_KEYCODE_MAP[e.code];
+        if (mappedKeycode) { keymapData[currentLayer][targetKeyIndexForCapture] = mappedKeycode; } 
+        else { console.warn(`Unsupported key captured: ${e.code}`); alert(`このキー (${e.code}) はサポートされていません。`); }
+        isWaitingForKeypress = false; targetKeyIndexForCapture = null; renderKeyboard();
+    }
+    
+    // ★★★★★★★★★★★★★★★★★★★★ 修正点 ★★★★★★★★★★★★★★★★★★★★★★
+    // ダウンロードするkeymap.hに、不足しているキーコード定義を追加
+    function generateFile() {
+        const highSpeed = document.getElementById('MOUSE_HIGH_SPEED').value;
+        const lowSpeed = document.getElementById('MOUSE_LOW_SPEED').value;
+        const accel = document.getElementById('MOUSE_ACCEL_THRESHOLD').value;
+        let fileContent = `// =========================================================================\n// ★★★ あなたが編集するのは、このファイルだけ! ★★★\n// =========================================================================\n\n#include <Adafruit_TinyUSB.h>\n\n// --- アナログスティック設定 (黄金設定) ---\n#define STICK_CENTER_X       470\n#define STICK_CENTER_Y       470\n#define STICK_DEADZONE       75\n#define MOUSE_HIGH_SPEED     ${highSpeed}f // ★ 最高速度\n#define MOUSE_LOW_SPEED      ${lowSpeed}f  // ★ 低速ゾーンの最高速度\n#define SMOOTHING_SAMPLES    2\n#define MOUSE_ACCEL_THRESHOLD ${accel} // ★ 低速ゾーンが終わる傾き\n\n// --- キーマトリクス設定 ---\n#define ROWS 8\n#define COLS 8\n#define LAYOUT_KEY_COUNT 65\n\n// --- カスタムキーコード定義 ---\n#define KC_MS_UP         0x201\n#define KC_MS_DOWN       0x202\n#define KC_MS_LEFT       0x203\n#define KC_MS_RIGHT      0x204\n#define KC_MS_BTN1       0x205 // 左クリック\n#define KC_MS_BTN2       0x206 // 右クリック\n#define KC_MS_BTN3       0x207 // 中クリック\n#define KC_MS_BTN4       0x208 // 戻る\n#define KC_MS_BTN5       0x209 // 進む\n#define MOUSE_MOVE_SPEED 8\n#define KC_NO            0x000\n#define SW_USB_BT        0x401\n\n#define KC_RESET_KM      0x501\n#define KC_REBOOT_DEF    0x502\n\n// JP Keyboard specific keycodes\n#ifndef HID_KEY_INTERNATIONAL1\n  #define HID_KEY_INTERNATIONAL1 0x87\n#endif\n#ifndef HID_KEY_INTERNATIONAL3\n  #define HID_KEY_INTERNATIONAL3 0x89\n#endif\n#ifndef HID_KEY_LANG1\n  #define HID_KEY_LANG1 0x90\n#endif\n#ifndef HID_KEY_LANG2\n  #define HID_KEY_LANG2 0x91\n#endif\n\n// レイヤー機能用\n#define NUM_LAYERS 2\n#define L_LOWER    0x301\n#define KC_TRNS    0x000\n\n\n// --- キーマップレイアウト定義 ---\nconst uint16_t layout[NUM_LAYERS][LAYOUT_KEY_COUNT] = {\n`;
+        keymapData.forEach((layer, layerIndex) => {
+            fileContent += `  // [${layerIndex}] = ${layerIndex === 0 ? 'Default Layer' : 'Lower Layer (Fnキーを押している間)'}\n  {\n`;
+            let logical_layer = layer; // The keymapData is already in logical order from parseKeymapH
+            let keyIdx = 0;
+            const createRow = (count, comment) => {
+                fileContent += `    // ${comment}\n    `;
+                fileContent += logical_layer.slice(keyIdx, keyIdx + count).join(', ') + ',\n';
+                keyIdx += count;
+            };
+            const row_counts = { '1段目': 2, '2段目': 15, '3段目': 14, '4段目': 14, '5段目': 12, '6段目': 6, '直接接続キー': 2 };
+            for(const [comment, count] of Object.entries(row_counts)) {
+                createRow(count, comment);
+            }
+            fileContent += '  }';
+            fileContent += (layerIndex < keymapData.length - 1) ? ',\n\n' : '\n';
+        });
+        fileContent += `};\n`;
+        const blob = new Blob([fileContent], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'keymap.h';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+    function parseKeymapH(content) { try { const mouseHighMatch = content.match(/#define\s+MOUSE_HIGH_SPEED\s+([\d.]+)f?/); const mouseLowMatch = content.match(/#define\s+MOUSE_LOW_SPEED\s+([\d.]+)f?/); const mouseAccelMatch = content.match(/#define\s+MOUSE_ACCEL_THRESHOLD\s+(\d+)/); if (mouseHighMatch) document.getElementById('MOUSE_HIGH_SPEED').value = mouseHighMatch[1]; if (mouseLowMatch) document.getElementById('MOUSE_LOW_SPEED').value = mouseLowMatch[1]; if (mouseAccelMatch) document.getElementById('MOUSE_ACCEL_THRESHOLD').value = mouseAccelMatch[1]; const keymapMatch = content.match(/const\s+uint16_t\s+layout\[.*?\]\[.*?\]\s*=\s*{([\s\S]*?)};/); if (!keymapMatch) throw new Error("Could not find 'layout' array."); let layersContent = keymapMatch[1]; layersContent = layersContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, ''); const layerMatches = layersContent.match(/{[^}]+}/g); if (!layerMatches || layerMatches.length < 2) throw new Error("Could not parse layers."); keymapData = layerMatches.map(layerStr => { const logical_keycodes = layerStr.replace(/{|}/g, '').split(',').map(s => s.trim()).filter(s => s.length > 0); if (logical_keycodes.length !== 65) throw new Error(`Incorrect number of keys found in a layer: ${logical_keycodes.length}`); return logical_keycodes; }); renderKeyboard(); alert('Keymap loaded successfully!'); } catch (error) { alert('Error parsing file: ' + error.message); console.error(error); } }
+    
+    async function connectBluetooth() { if (!navigator.bluetooth) { alert('このブラウザはWeb Bluetoothに対応していません。Chrome/Edgeをご使用ください。'); return; } try { addDebugLog('接続開始...'); btStatus.textContent = 'Status: デバイス選択中...'; const options = { acceptAllDevices: false, filters: [ { name: 'PotaKB' }, { namePrefix: 'Pota' } ], optionalServices: [ KEYMAP_SERVICE_UUID ] }; bluetoothDevice = await navigator.bluetooth.requestDevice(options); bluetoothDevice.addEventListener('gattserverdisconnected', () => { btStatus.textContent = 'Status: 切断されました'; keymapCharacteristic = null; bluetoothDevice = null; saveToKeyboardButton.disabled = true; connectButton.textContent = 'Connect via Bluetooth'; connectButton.style.backgroundColor = '#007bff'; }); btStatus.textContent = 'Status: 接続中...'; const server = await bluetoothDevice.gatt.connect(); const service = await server.getPrimaryService(KEYMAP_SERVICE_UUID); keymapCharacteristic = await service.getCharacteristic(KEYMAP_CHAR_UUID); btStatus.textContent = `Status: 接続成功! (${bluetoothDevice.name})`; saveToKeyboardButton.disabled = false; connectButton.textContent = '接続済み'; connectButton.style.backgroundColor = '#28a745'; } catch(error) { btStatus.textContent = 'Status: 接続失敗 - ' + error.message; } }
+    async function saveToKeyboardViaBluetooth() { if (!keymapCharacteristic) { alert('先にBluetoothでPotaKBに接続してください!'); return; } let modeSwitchFound = false; let resetKmFound = false; let rebootDefFound = false; keymapData.forEach(layer => { layer.forEach(keycode => { if (keycode === 'SW_USB_BT') modeSwitchFound = true; if (keycode === 'KC_RESET_KM') resetKmFound = true; if (keycode === 'KC_REBOOT_DEF') rebootDefFound = true; }); }); if (!modeSwitchFound) { alert("エラー: 'Mode'キー (SW_USB_BT) がキーマップに配置されていません。\n\nUSB/BTの切り替えができなくなるため、書き込みを中止します。"); return; } if (!resetKmFound && !rebootDefFound) { if (!confirm("警告:\nキーマップをリセットする手段が配置されていません。このまま書き込みますか？\n\n- Reset KM (プロファイル完全消去)\n- Boot DEF (一時的に初期設定で起動)")) { return; } } if (!confirm('キーボードにキーマップを書き込みます。書き込み後、キーボードは自動的に再起動します。\n\n続行しますか?')) { return; } try { btStatus.textContent = 'Status: 書き込み中... (0%)'; saveToKeyboardButton.disabled = true; const data = convertKeymapToBytes(keymapData); const CHUNK_SIZE = 20; const totalChunks = Math.ceil(data.byteLength / CHUNK_SIZE); for (let i = 0; i < totalChunks; i++) { const offset = i * CHUNK_SIZE; const chunk = data.slice(offset, offset + CHUNK_SIZE); await keymapCharacteristic.writeValueWithoutResponse(chunk); const progress = Math.round(((i + 1) / totalChunks) * 100); btStatus.textContent = `Status: 書き込み中... (${progress}%)`; await new Promise(resolve => setTimeout(resolve, 20)); } btStatus.textContent = 'Status: 書き込み完了! キーボードが再起動します'; alert('✔ キーマップの保存に成功しました!\n\nキーボードが再起動します。\n数秒後に再接続してください。'); setTimeout(() => { if (bluetoothDevice && bluetoothDevice.gatt.connected) { bluetoothDevice.gatt.disconnect(); } }, 1000); } catch (error) { alert('書き込みに失敗しました: ' + error.message); btStatus.textContent = 'Status: ' + error.message; saveToKeyboardButton.disabled = false; } }
+    function convertKeymapToBytes(stringKeymap) { const totalKeys = 2 * 65; const buffer = new ArrayBuffer(totalKeys * 2); const view = new DataView(buffer); let offset = 0; stringKeymap.forEach(layer => { layer.forEach(keycodeStr => { const value = KEYCODE_TO_VALUE_MAP[keycodeStr] !== undefined ? KEYCODE_TO_VALUE_MAP[keycodeStr] : 0; view.setUint16(offset, value, true); offset += 2; }); }); return buffer; }
+    
+    layerSelector.addEventListener('change', (e) => { currentLayer = parseInt(e.target.value); selectedKeyIndices.clear(); renderKeyboard(); });
+    generateButton.addEventListener('click', generateFile);
+    fileImporter.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { parseKeymapH(event.target.result); }; reader.readAsText(file); e.target.value = ''; });
+    connectButton.addEventListener('click', connectBluetooth);
+    saveToKeyboardButton.addEventListener('click', saveToKeyboardViaBluetooth);
+    jisLayoutToggle.addEventListener('change', renderKeyboard);
+    document.addEventListener('keydown', handleKeyCapture);
+
+    renderPalette();
+    renderKeyboard();
+    
+    document.getElementById('MOUSE_HIGH_SPEED').value = "75.0";
+    document.getElementById('MOUSE_LOW_SPEED').value = "10.0";
+    document.getElementById('MOUSE_ACCEL_THRESHOLD').value = "400";
+    
+    addDebugLog('アプリケーション起動完了');
+});
+</script>
+</body>
+</html>
