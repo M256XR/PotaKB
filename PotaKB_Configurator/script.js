@@ -474,12 +474,9 @@ const uint16_t layout[NUM_LAYERS][LAYOUT_KEY_COUNT] = {
             addDebugLog('USB接続開始...');
             connectionStatus.textContent = 'Status: ポート選択中...';
             
-            serialPort = await navigator.serial.requestPort({
-                filters: [
-                    { usbVendorId: 0x239A, usbProductId: 0x802A },  // 新しいID
-                    { usbVendorId: 0x239A, usbProductId: 0x8029 }   // 旧IDとの互換性
-                ]
-            });
+            // フィルタなしですべてのシリアルポートを表示
+            // （GitHub Pagesでも動作するように）
+            serialPort = await navigator.serial.requestPort();
 
             // デバイス情報をログに表示
             const info = serialPort.getInfo();

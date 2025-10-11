@@ -1,7 +1,11 @@
 // -------------------------------------------------------------------------
 // --- PotaKB for XIAO nRF52840 ---
-// ---------- Ver: 1.3.5 (Compile Fix) ----------
+// ---------- Ver: 1.3.6 ----------
 // -------------------------------------------------------------------------
+
+// USB記述子をincludeの前に定義（これが最も確実）
+#define USB_MANUFACTURER "PotaKB"
+#define USB_PRODUCT "PotaKB Keyboard"
 
 #include <bluefruit.h>
 #include <Wire.h>
@@ -132,10 +136,10 @@ void applyModeConfig(OperatingMode_t mode);
 void handleSerialCommands();
 
 void setup() {
+  // USB記述子はinclude前のマクロで定義済み
+  // ここではIDのみ設定（新しいデバイスとして認識させるため）
   TinyUSBDevice.setID(0x239A, 0x802A);
-  TinyUSBDevice.setManufacturerDescriptor("0Re0_8192");
-  TinyUSBDevice.setProductDescriptor("PotaKB");          // ★ここ！
-
+  
   Serial.begin(115200);
   
   InternalFS.begin(); 
