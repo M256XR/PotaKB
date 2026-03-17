@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PotaKB Configurator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header class="app-header">
+    <div class="header-left">
+      <span class="app-title">PotaKB</span>
+      <span class="app-version">v2.0 Configurator</span>
+    </div>
+    <div class="header-right">
+      <span class="battery-display" id="batteryDisplay">
+        <span class="battery-icon">&#9646;</span>
+        <span id="batteryValue">--%</span>
+      </span>
+      <span class="conn-indicator">
+        <span class="conn-dot" id="connDot"></span>
+        <span id="connLabel">未接続</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- メインレイアウト -->
+  <main class="app-main">
+
+    <!-- 左パネル: キーボードビジュアル + パレット -->
+    <section class="panel panel-left">
+
+      <!-- レイヤータブ -->
+      <div class="layer-tabs">
+        <button class="layer-tab active" id="tabLayer0" onclick="switchLayer(0)">Default (Layer 0)</button>
+        <button class="layer-tab" id="tabLayer1" onclick="switchLayer(1)">Lower (Layer 1)</button>
+        <div class="layer-tab-spacer"></div>
+        <button class="btn btn-sm btn-secondary" onclick="copyLayerTo(0,1)" title="Layer 0 → Layer 1 にコピー">L0→L1</button>
+        <button class="btn btn-sm btn-secondary" onclick="copyLayerTo(1,0)" title="Layer 1 → Layer 0 にコピー">L1→L0</button>
+      </div>
+
+      <!-- キーボードビジュアル -->
+      <div class="keyboard-container">
+        <div class="keyboard-scroll">
+          <div id="keyboardWrap">
+            <!-- JSで動的生成 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 選択情報バー -->
+      <div class="selection-bar" id="selectionBar">
+        <span id="selectionInfo" class="selection-hint">キーをクリックして選択し、下のパレットからキーコードを割り当てます（Shiftクリックで複数選択）</span>
+      </div>
+
+      <!-- キーコードパレット -->
+      <div class="palette-container">
+        <div class="palette-tab-row" id="paletteTabs">
+          <button class="palette-tab active" data-cat="special"  onclick="switchPaletteTab('special')">特殊</button>
+          <button class="palette-tab" data-cat="letters"  onclick="switchPaletteTab('letters')">文字</button>
+          <button class="palette-tab" data-cat="numbers"  onclick="switchPaletteTab('numbers')">数字</button>
+          <button class="palette-tab" data-cat="fn"       onclick="switchPaletteTab('fn')">Fn</button>
+          <button class="palette-tab" data-cat="mods"     onclick="switchPaletteTab('mods')">修飾</button>
+          <button class="palette-tab" data-cat="edit"     onclick="switchPaletteTab('edit')">編集</button>
+          <button class="palette-tab" data-cat="nav"      onclick="switchPaletteTab('nav')">ナビ</button>
+          <button class="palette-tab" data-cat="symbols"  onclick="switchPaletteTab('symbols')">記号</button>
+          <button class="palette-tab" data-cat="mouse"    onclick="switchPaletteTab('mouse')">マウス</button>
+          <button class="palette-tab" data-cat="jp"       onclick="switchPaletteTab('jp')">日本語</button>
+        </div>
+        <div class="palette-keys" id="paletteKeys">
+          <!-- JSで動的生成 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 右パネル: 接続・設定 -->
+    <section class="panel panel-right">
+
+      <!-- タブヘッダー -->
+      <div class="right-tabs">
+        <button class="right-tab active" id="rightTabConn"   onclick="switchRightTab('conn')">接続</button>
+        <button class="right-tab"        id="rightTabConfig" onclick="switchRightTab('config')">設定</button>
+      </div>
+
+      <!-- ========== 接続タブ ========== -->
+      <div class="right-panel-body" id="connPanel">
+
+        <!-- 接続方式 -->
+        <div class="form-group">
+          <div class="form-label">接続方式</div>
+          <div class="mode-selector">
+            <label class="radio-label">
+              <input type="radio" name="connMode" value="ble" id="modeBLE" checked onchange="onConnModeChange()">
+              <span>Bluetooth (BLE)</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="connMode" value="usb" id="modeUSB" onchange="onConnModeChange()">
+              <span>USB Serial</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- BLE接続エリア -->
+        <div id="bleConnArea">
+          <button class="btn btn-primary btn-full" id="btnBLEConnect" onclick="connectBLE()">
+            Bluetoothで接続
+          </button>
+          <p class="help-text">Web Bluetooth API を使用します。<br>Chrome / Edge など対応ブラウザが必要です。</p>
+        </div>
+
+        <!-- USB Serial接続エリア -->
+        <div id="usbConnArea" style="display:none;">
+          <button class="btn btn-primary btn-full" id="btnUSBConnect" onclick="connectUSB()">
+            USB Serialで接続
+          </button>
+          <p class="help-text">Web Serial API を使用します。<br>Chrome / Edge など対応ブラウザが必要です。</p>
+        </div>
+
+        <!-- 切断ボタン（接続中のみ表示） -->
+        <button class="btn btn-danger btn-full" id="btnDisconnect" onclick="disconnect()" style="display:none;">
+          切断する
+        </button>
+
+        <!-- アクション -->
+        <div class="action-group">
+          <div class="action-title">デバイス操作</div>
+          <button class="btn btn-secondary btn-full" id="btnLoad"       onclick="loadFromDevice()"   disabled>デバイスから読み込む</button>
+          <button class="btn btn-secondary btn-full" id="btnSave"       onclick="saveToDevice()"     disabled>デバイスへ保存する</button>
+          <button class="btn btn-secondary btn-full" id="btnCalibrate"  onclick="calibrateDevice()"  disabled>スティックキャリブレーション</button>
+          <button class="btn btn-secondary btn-full" id="btnGetBattery" onclick="getBattery()"        disabled>バッテリー残量を取得</button>
+        </div>
+
+        <!-- ファイル操作 -->
+        <div class="action-group">
+          <div class="action-title">ファイル操作</div>
+          <button class="btn btn-secondary btn-full" onclick="exportToFile()">JSON でエクスポート</button>
+          <label class="btn btn-secondary btn-full" style="text-align:center; cursor:pointer;">
+            JSON からインポート
+            <input type="file" accept=".json" onchange="importFromFile(event)" style="display:none;">
+          </label>
+        </div>
+
+        <!-- ログ -->
+        <div class="log-wrap">
+          <div class="log-header">
+            <span>ログ</span>
+            <button class="btn-icon" onclick="clearLog()" title="クリア">&#x1F5D1;</button>
+          </div>
+          <div class="log-body" id="logContent">
+            <div class="log-entry log-info">PotaKB Configurator v2.0 起動</div>
+          </div>
+        </div>
+
+      </div><!-- /connPanel -->
+
+      <!-- ========== 設定タブ ========== -->
+      <div class="right-panel-body" id="configPanel" style="display:none;">
+        <div class="config-form">
+
+          <div class="config-section-title">スティック設定</div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgCenterX">
+              センター X&nbsp;<span class="val-badge" id="hintCenterX">512</span>
+            </label>
+            <input type="range" class="form-range" id="cfgCenterX" min="0" max="1023" value="512"
+              oninput="onRangeInput('stick_center_x',+this.value,'hintCenterX',v=>v,'cfgCenterXNum')">
+            <div class="range-labels"><span>0</span><span>1023</span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgCenterY">
+              センター Y&nbsp;<span class="val-badge" id="hintCenterY">512</span>
+            </label>
+            <input type="range" class="form-range" id="cfgCenterY" min="0" max="1023" value="512"
+              oninput="onRangeInput('stick_center_y',+this.value,'hintCenterY',v=>v,'cfgCenterYNum')">
+            <div class="range-labels"><span>0</span><span>1023</span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgDeadzone">
+              デッドゾーン&nbsp;<span class="val-badge" id="hintDeadzone">75</span>
+            </label>
+            <input type="range" class="form-range" id="cfgDeadzone" min="0" max="300" value="75"
+              oninput="onRangeInput('stick_deadzone',+this.value,'hintDeadzone',v=>v,'cfgDeadzoneNum')">
+            <div class="range-labels"><span>0</span><span>300</span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgEmaAlpha">
+              EMA アルファ&nbsp;<span class="val-badge" id="hintEmaAlpha">0.40</span>
+            </label>
+            <input type="range" class="form-range" id="cfgEmaAlpha" min="1" max="100" value="40"
+              oninput="onRangeInput('stick_ema_alpha',this.value/100,'hintEmaAlpha',v=>v.toFixed(2),'cfgEmaAlphaNum')">
+            <div class="range-labels"><span>0.01</span><span>1.00</span></div>
+          </div>
+
+          <div class="config-section-title">マウス設定</div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgMouseSpeed">
+              マウス最大速度&nbsp;<span class="val-badge" id="hintMouseSpeed">0.80</span>
+            </label>
+            <input type="range" class="form-range" id="cfgMouseSpeed" min="1" max="500" value="80"
+              oninput="onRangeInput('mouse_max_speed',this.value/100,'hintMouseSpeed',v=>v.toFixed(2),'cfgMouseSpeedNum')">
+            <div class="range-labels"><span>0.01</span><span>5.00</span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgScrollSpeed">
+              スクロール最大速度&nbsp;<span class="val-badge" id="hintScrollSpeed">0.06</span>
+            </label>
+            <input type="range" class="form-range" id="cfgScrollSpeed" min="1" max="200" value="6"
+              oninput="onRangeInput('scroll_max_speed',this.value/100,'hintScrollSpeed',v=>v.toFixed(2),'cfgScrollSpeedNum')">
+            <div class="range-labels"><span>0.01</span><span>2.00</span></div>
+          </div>
+
+          <div class="config-section-title">システム設定</div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgSleepTimeout">
+              スリープタイムアウト&nbsp;<span class="val-badge" id="hintSleepTimeout">300</span>&nbsp;秒
+            </label>
+            <input type="range" class="form-range" id="cfgSleepTimeout" min="10" max="3600" value="300"
+              oninput="onRangeInput('sleep_timeout_ms',this.value*1000,'hintSleepTimeout',v=>Math.round(v/1000),'cfgSleepTimeoutNum')">
+            <div class="range-labels"><span>10s</span><span>3600s</span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgLedBrightness">
+              LED 輝度&nbsp;<span class="val-badge" id="hintLedBrightness">25</span>
+            </label>
+            <input type="range" class="form-range" id="cfgLedBrightness" min="0" max="255" value="25"
+              oninput="onRangeInput('led_brightness',+this.value,'hintLedBrightness',v=>v,'cfgLedBrightnessNum')">
+            <div class="range-labels"><span>0</span><span>255</span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgBlinkInterval">
+              点滅間隔&nbsp;<span class="val-badge" id="hintBlinkInterval">600</span>&nbsp;ms
+            </label>
+            <input type="range" class="form-range" id="cfgBlinkInterval" min="100" max="5000" value="600"
+              oninput="onRangeInput('blink_interval_ms',+this.value,'hintBlinkInterval',v=>v,'cfgBlinkIntervalNum')">
+            <div class="range-labels"><span>100ms</span><span>5000ms</span></div>
+          </div>
+
+          <!-- 数値直接入力 -->
+          <div class="config-section-title">数値入力</div>
+          <div class="config-num-grid">
+
+            <div class="num-field">
+              <label class="form-label-sm">Center X</label>
+              <input type="number" class="form-num" id="cfgCenterXNum"
+                min="0" max="1023" value="512"
+                onchange="onNumInput('stick_center_x','cfgCenterXNum','cfgCenterX','hintCenterX',1,false)">
+            </div>
+            <div class="num-field">
+              <label class="form-label-sm">Center Y</label>
+              <input type="number" class="form-num" id="cfgCenterYNum"
+                min="0" max="1023" value="512"
+                onchange="onNumInput('stick_center_y','cfgCenterYNum','cfgCenterY','hintCenterY',1,false)">
+            </div>
+            <div class="num-field">
+              <label class="form-label-sm">Deadzone</label>
+              <input type="number" class="form-num" id="cfgDeadzoneNum"
+                min="0" max="300" value="75"
+                onchange="onNumInput('stick_deadzone','cfgDeadzoneNum','cfgDeadzone','hintDeadzone',1,false)">
+            </div>
+            <div class="num-field">
+              <label class="form-label-sm">EMA Alpha</label>
+              <input type="number" class="form-num" id="cfgEmaAlphaNum"
+                min="0.01" max="1.0" step="0.01" value="0.40"
+                onchange="onNumInput('stick_ema_alpha','cfgEmaAlphaNum','cfgEmaAlpha','hintEmaAlpha',100,true)">
+            </div>
+            <div class="num-field">
+              <label class="form-label-sm">Mouse Speed</label>
+              <input type="number" class="form-num" id="cfgMouseSpeedNum"
+                min="0.01" max="5.0" step="0.01" value="0.80"
+                onchange="onNumInput('mouse_max_speed','cfgMouseSpeedNum','cfgMouseSpeed','hintMouseSpeed',100,true)">
+            </div>
+            <div class="num-field">
+              <label class="form-label-sm">Scroll Speed</label>
+              <input type="number" class="form-num" id="cfgScrollSpeedNum"
+                min="0.01" max="2.0" step="0.01" value="0.06"
+                onchange="onNumInput('scroll_max_speed','cfgScrollSpeedNum','cfgScrollSpeed','hintScrollSpeed',100,true)">
+            </div>
+            <div class="num-field">
+              <label class="form-label-sm">Sleep (s)</label>
+              <input type="number" class="form-num" id="cfgSleepTimeoutNum"
+                min="10" max="3600" value="300"
+                onchange="onNumInput('sleep_timeout_ms','cfgSleepTimeoutNum','cfgSleepTimeout','hintSleepTimeout',0.001,false)">
+            </div>
+            <div class="num-field">
+              <label class="form-label-sm">LED Bright</label>
+              <input type="number" class="form-num" id="cfgLedBrightnessNum"
+                min="0" max="255" value="25"
+                onchange="onNumInput('led_brightness','cfgLedBrightnessNum','cfgLedBrightness','hintLedBrightness',1,false)">
+            </div>
+            <div class="num-field">
+              <label class="form-label-sm">Blink (ms)</label>
+              <input type="number" class="form-num" id="cfgBlinkIntervalNum"
+                min="100" max="5000" value="600"
+                onchange="onNumInput('blink_interval_ms','cfgBlinkIntervalNum','cfgBlinkInterval','hintBlinkInterval',1,false)">
+            </div>
+
+          </div>
+
+          <button class="btn btn-secondary btn-full" style="margin-top:16px;" onclick="resetConfigToDefault()">
+            デフォルト値に戻す
+          </button>
+
+        </div><!-- /config-form -->
+      </div><!-- /configPanel -->
+
+    </section><!-- /panel-right -->
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

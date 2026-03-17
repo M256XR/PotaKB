@@ -507,7 +507,7 @@
       "plot": "",
       "pos_files": "",
       "specctra_dsn": "Potable_Keyboard.dsn",
-      "step": "",
+      "step": "Potable_Keyboard.step",
       "svg": "",
       "vrml": ""
     },
