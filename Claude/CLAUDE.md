@@ -79,20 +79,22 @@ KC_MS_*      = 0x2001〜0x200D
 HID標準      = USB HID spec値そのまま
 ```
 
-### Config構造体（packed、30バイト）
+### Config構造体（packed、34バイト、CONFIG_VERSION=2）
 
 ```c
 uint8_t  version;           // offset 0
 uint16_t stick_center_x;    // offset 1
 uint16_t stick_center_y;    // offset 3
 uint16_t stick_deadzone;    // offset 5
-float    stick_ema_alpha;   // offset 7
-float    mouse_max_speed;   // offset 11
-float    scroll_max_speed;  // offset 15
-uint32_t sleep_timeout_ms;  // offset 19
-uint8_t  led_brightness;    // offset 23
-uint16_t blink_interval_ms; // offset 24
-uint32_t magic;             // offset 26 = 0x504F5441 "POTA"
+uint16_t stick_range_x;     // offset 7  スティックX最大変位
+uint16_t stick_range_y;     // offset 9  スティックY最大変位
+float    stick_ema_alpha;   // offset 11
+float    mouse_max_speed;   // offset 15
+float    scroll_max_speed;  // offset 19
+uint32_t sleep_timeout_ms;  // offset 23
+uint8_t  led_brightness;    // offset 27
+uint16_t blink_interval_ms; // offset 28
+uint32_t magic;             // offset 30 = 0x504F5441 "POTA"
 ```
 
 ### BLE GATT
@@ -110,6 +112,9 @@ READ_CONFIG / WRITE_CONFIG
 GET_BATTERY → "BATTERY:xx\n"
 CALIBRATE
 GET_VERSION → "PotaKB v2.0\n"
+READ_STICK  → "STICK:x,y\n"  (論理X=A3, 論理Y=A2)
+CALIB_START → "OK\n"  スティック処理を無効化（キャリブ中カーソル防止）
+CALIB_END   → "OK\n"  スティック処理を再開
 ```
 
 ---

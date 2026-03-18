@@ -46,17 +46,19 @@ struct Config {
   uint16_t stick_center_x;
   uint16_t stick_center_y;
   uint16_t stick_deadzone;
-  float    stick_ema_alpha;
-  float    mouse_max_speed;
-  float    scroll_max_speed;
-  uint32_t sleep_timeout_ms;
-  uint8_t  led_brightness;
-  uint16_t blink_interval_ms;
-  uint32_t magic;
+  uint16_t stick_range_x;     // offset 7  スティックX軸の最大変位
+  uint16_t stick_range_y;     // offset 9  スティックY軸の最大変位
+  float    stick_ema_alpha;   // offset 11
+  float    mouse_max_speed;   // offset 15
+  float    scroll_max_speed;  // offset 19
+  uint32_t sleep_timeout_ms;  // offset 23
+  uint8_t  led_brightness;    // offset 27
+  uint16_t blink_interval_ms; // offset 28
+  uint32_t magic;             // offset 30 = 0x504F5441
 };
 #pragma pack(pop)
 
-#define CONFIG_VERSION  1
+#define CONFIG_VERSION  2
 #define CONFIG_MAGIC    0x504F5441UL  // "POTA"
 
 // =========================================================================
@@ -141,6 +143,9 @@ unsigned long lastMouseReportTime = 0;
 
 // --- モード切替フラグ ---
 bool sw_mode_was_pressed = false;
+
+// --- キャリブレーション中フラグ ---
+bool calibrating = false;
 
 // --- アクティビティ・スリープ ---
 unsigned long lastActivityTime = 0;
@@ -236,7 +241,10 @@ void setup() {
   }
 
   // モード確定
-  if (currentMode == MODE_USB && !TinyUSBDevice.mounted()) {
+  // USB接続あり → 保存モードに関わらずUSB優先
+  if (TinyUSBDevice.mounted()) {
+    currentMode = MODE_USB;
+  } else if (currentMode == MODE_USB) {
     currentMode = MODE_BT1;
     saveMode(currentMode);
   }
@@ -253,9 +261,12 @@ void loop() {
   // 電源スイッチ
   if (digitalRead(POWER_SW_PIN) == HIGH) powerOff();
 
-  // USBケーブル抜き検出
+  // USBケーブル抜き検出（モードは保存しない：次回USB接続時にUSBで起動できるよう）
   if (currentMode == MODE_USB && !TinyUSBDevice.mounted()) {
-    switchMode(MODE_BT1);
+    currentMode = MODE_BT1;
+    Bluefruit.Advertising.stop();
+    startAdvertising(0);
+    updateLED();
   }
 
   // シリアルコマンド処理
@@ -320,7 +331,14 @@ void initHardware() {
   usb_hid.begin();
 
   // MCP23017
-  initMCP();
+  if (!initMCP()) {
+    // 初期化失敗: 赤LED高速点滅でエラー通知
+    Serial.println("ERROR: MCP23017 init failed");
+    for (int i = 0; i < 10; i++) {
+      analogWrite(LED_RED, 0); delay(100);
+      analogWrite(LED_RED, 255); delay(100);
+    }
+  }
   Wire.setClock(400000);
 
   // マトリクス → レイアウトインデックス変換テーブル構築
@@ -371,6 +389,27 @@ void buildMatrixMap() {
 // MCP23017初期化
 // =========================================================================
 bool initMCP() {
+  // I2Cバスリカバリ: SDAがLOWで詰まっている場合に9クロックで解放
+  {
+    const int SDA_PIN = SDA;
+    const int SCL_PIN = SCL;
+    pinMode(SCL_PIN, OUTPUT);
+    pinMode(SDA_PIN, INPUT_PULLUP);
+    if (digitalRead(SDA_PIN) == LOW) {
+      for (int i = 0; i < 9; i++) {
+        digitalWrite(SCL_PIN, HIGH); delayMicroseconds(5);
+        digitalWrite(SCL_PIN, LOW);  delayMicroseconds(5);
+      }
+      // STOP condition
+      pinMode(SDA_PIN, OUTPUT);
+      digitalWrite(SDA_PIN, LOW);  delayMicroseconds(5);
+      digitalWrite(SCL_PIN, HIGH); delayMicroseconds(5);
+      digitalWrite(SDA_PIN, HIGH); delayMicroseconds(5);
+    }
+    // Wire に引き渡す
+    Wire.begin();
+  }
+
   if (!mcp.begin_I2C()) return false;
   for (int i = 0; i < 8;  i++) mcp.pinMode(i, INPUT_PULLUP);
   for (int i = 8; i < 16; i++) mcp.pinMode(i, OUTPUT);
@@ -592,6 +631,7 @@ void processInputs() {
 // EMAスムージング + deltaTime速度計算
 // =========================================================================
 void updateStick(unsigned long now) {
+  if (calibrating) return;  // キャリブレーション中はスティック無効
   float dt = (float)(now - lastStickUpdateTime);  // ms
   if (dt < 1.0f) return;
   lastStickUpdateTime = now;
@@ -619,18 +659,18 @@ void updateStick(unsigned long now) {
   if (active_layer == 0) {
     // --- マウスモード ---
     // 速度カーブ: 二乗（デッドゾーン付近は遅く、端は速い）
-    auto calcSpeed = [&](float diff) -> float {
+    auto calcSpeed = [&](float diff, float range) -> float {
       if (diff == 0.0f) return 0.0f;
-      float norm = (fabsf(diff) - dz) / (511.0f - dz);
+      float norm = (fabsf(diff) - dz) / (range - dz);
       norm = constrain(norm, 0.0f, 1.0f);
       return copysignf(norm * norm * currentConfig.mouse_max_speed, diff);
     };
 
-    float vx = calcSpeed(diff_x);
-    float vy = calcSpeed(diff_y);
+    float vx = calcSpeed(diff_x, (float)currentConfig.stick_range_x);
+    float vy = calcSpeed(diff_y, (float)currentConfig.stick_range_y);
 
     acc_mouse_x += vx * dt;
-    acc_mouse_y += vy * dt;
+    acc_mouse_y -= vy * dt;  // 上下反転（実機確認済み）
 
     // アキュムレータをオーバーフロー前にクランプ
     acc_mouse_x = constrain(acc_mouse_x, -127.0f, 127.0f);
@@ -638,16 +678,16 @@ void updateStick(unsigned long now) {
 
   } else {
     // --- スクロールモード（Lowerレイヤー）---
-    auto calcScrollSpeed = [&](float diff) -> float {
+    auto calcScrollSpeed = [&](float diff, float range) -> float {
       if (diff == 0.0f) return 0.0f;
-      float norm = (fabsf(diff) - dz) / (511.0f - dz);
+      float norm = (fabsf(diff) - dz) / (range - dz);
       norm = constrain(norm, 0.0f, 1.0f);
       return copysignf(norm * norm * currentConfig.scroll_max_speed, diff);
     };
 
     // Y軸→縦スクロール（上方向が負）
-    float sv = calcScrollSpeed(diff_y);
-    float sh = calcScrollSpeed(diff_x);
+    float sv = calcScrollSpeed(diff_y, (float)currentConfig.stick_range_y);
+    float sh = calcScrollSpeed(diff_x, (float)currentConfig.stick_range_x);
 
     acc_scroll += -sv * dt;  // スティック上 = スクロールアップ
     acc_pan    +=  sh * dt;
@@ -966,6 +1006,8 @@ void loadDefaultConfig() {
   currentConfig.stick_center_x    = DEFAULT_STICK_CENTER_X;
   currentConfig.stick_center_y    = DEFAULT_STICK_CENTER_Y;
   currentConfig.stick_deadzone    = DEFAULT_STICK_DEADZONE;
+  currentConfig.stick_range_x     = DEFAULT_STICK_RANGE_X;
+  currentConfig.stick_range_y     = DEFAULT_STICK_RANGE_Y;
   currentConfig.stick_ema_alpha   = DEFAULT_STICK_EMA_ALPHA;
   currentConfig.mouse_max_speed   = DEFAULT_MOUSE_MAX_SPEED;
   currentConfig.scroll_max_speed  = DEFAULT_SCROLL_MAX_SPEED;
@@ -1000,8 +1042,23 @@ void loadKeymap() {
   if (!InternalFS.exists(KEYMAP_FILE)) return;
   File f = InternalFS.open(KEYMAP_FILE, FILE_O_READ);
   if (!f) return;
+  if (f.size() != sizeof(current_keymap)) {
+    f.close();
+    InternalFS.remove(KEYMAP_FILE);
+    return;
+  }
   f.read((uint8_t*)current_keymap, sizeof(current_keymap));
   f.close();
+
+  // 全ゼロなら破損ファイルとみなしてデフォルトに戻す
+  bool all_zero = true;
+  for (int i = 0; i < LAYOUT_KEY_COUNT && all_zero; i++) {
+    if (current_keymap[0][i] != 0) all_zero = false;
+  }
+  if (all_zero) {
+    memcpy(current_keymap, default_keymap, sizeof(current_keymap));
+    InternalFS.remove(KEYMAP_FILE);
+  }
 }
 
 void saveKeymap() {
@@ -1081,6 +1138,24 @@ void handleSerial() {
         else if (serialCmdBuf == "GET_BATTERY")  { updateBattery(); Serial.print("BATTERY:"); Serial.println(lastBatteryTier); }
         else if (serialCmdBuf == "CALIBRATE")    { doCalibrate(); Serial.println("OK"); }
         else if (serialCmdBuf == "GET_VERSION")  { Serial.println("PotaKB v2.0"); }
+        else if (serialCmdBuf == "READ_STICK")   {
+          Serial.print("STICK:");
+          Serial.print(analogRead(STICK_PHYS_Y_PIN));  // 論理X
+          Serial.print(",");
+          Serial.println(analogRead(STICK_PHYS_X_PIN)); // 論理Y
+        }
+        else if (serialCmdBuf == "CALIB_START")  {
+          calibrating = true;
+          acc_mouse_x = 0.0f; acc_mouse_y = 0.0f;
+          acc_scroll  = 0.0f; acc_pan    = 0.0f;
+          lastStickUpdateTime = millis();
+          Serial.println("OK");
+        }
+        else if (serialCmdBuf == "CALIB_END")    {
+          calibrating = false;
+          lastStickUpdateTime = millis();
+          Serial.println("OK");
+        }
         serialCmdBuf = "";
       } else {
         serialCmdBuf += c;

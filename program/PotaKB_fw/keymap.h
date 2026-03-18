@@ -72,6 +72,8 @@
 #define DEFAULT_STICK_CENTER_X    512
 #define DEFAULT_STICK_CENTER_Y    512
 #define DEFAULT_STICK_DEADZONE    75
+#define DEFAULT_STICK_RANGE_X     511
+#define DEFAULT_STICK_RANGE_Y     511
 #define DEFAULT_STICK_EMA_ALPHA   0.4f   // スムージング係数 (0=最大平滑, 1=なし)
 #define DEFAULT_MOUSE_MAX_SPEED   0.8f   // px/ms（deltaTime方式）
 #define DEFAULT_SCROLL_MAX_SPEED  0.06f  // tick/ms
@@ -186,7 +188,7 @@ const uint16_t default_keymap[NUM_LAYERS][LAYOUT_KEY_COUNT] = {
     MO(1),
 
     // 直接接続キー
-    KC_CALIBRATE,  // Next = キャリブレーション
+    KC_NO,         // Next = 空き（キャリブレーションはConfigurator経由）
     KC_RESET,      // Back = リセット
   },
 };

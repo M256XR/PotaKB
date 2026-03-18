@@ -250,6 +250,8 @@ a { color: var(--accent); }
 .key.key-trns { color: var(--text-dim); font-style: italic; }
 /* マウスボタン行 */
 .key-row-mouse { margin-bottom: 8px; }
+/* スペーサー（スティックモジュール等の空白） */
+.key-spacer { flex-shrink: 0; background: transparent; }
 
 /* ---------- 選択バー ---------- */
 .selection-bar {
@@ -657,3 +659,60 @@ a { color: var(--accent); }
   .layer-tabs { flex-wrap: wrap; }
   .palette-tab { padding: 5px 8px; font-size: 11px; }
 }
+
+/* ---------- キャリブレーションモーダル ---------- */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 280px;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.modal-close {
+  position: absolute; top: 12px; right: 12px;
+  background: none; border: none;
+  color: var(--text-sub); font-size: 16px; padding: 4px 8px;
+  border-radius: var(--radius);
+}
+.modal-close:hover { background: var(--surface3); color: var(--text); }
+.modal-title {
+  margin: 0 0 16px; font-size: 15px; font-weight: 600;
+  color: var(--text);
+}
+.calib-instruction {
+  font-size: 13px; color: var(--text-sub); line-height: 1.6;
+  margin: 0 0 16px;
+}
+.calib-instruction strong { color: var(--text); }
+.calib-canvas-wrap {
+  display: flex; justify-content: center; margin-bottom: 12px;
+}
+#calibCanvas {
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  background: #0d0d1a;
+}
+.calib-info {
+  text-align: center; font-size: 12px; color: var(--text-sub);
+  margin-bottom: 12px;
+}
+.calib-center-btns, .calib-result-btns {
+  display: flex; gap: 8px; justify-content: center;
+}
+.calib-result-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; margin-bottom: 16px;
+}
+.calib-result-table td {
+  padding: 4px 8px; border-bottom: 1px solid var(--border);
+}
+.calib-result-table td:first-child { color: var(--text-sub); }
+.calib-result-table td:last-child  { color: var(--accent); font-weight: 600; text-align: right; }

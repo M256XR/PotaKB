@@ -189,6 +189,24 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label" for="cfgRangeX">
+              スティック範囲 X&nbsp;<span class="val-badge" id="hintRangeX">511</span>
+            </label>
+            <input type="range" class="form-range" id="cfgRangeX" min="50" max="511" value="511"
+              oninput="onRangeInput('stick_range_x',+this.value,'hintRangeX',v=>v,'cfgRangeXNum')">
+            <div class="range-labels"><span>50</span><span>511</span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cfgRangeY">
+              スティック範囲 Y&nbsp;<span class="val-badge" id="hintRangeY">511</span>
+            </label>
+            <input type="range" class="form-range" id="cfgRangeY" min="50" max="511" value="511"
+              oninput="onRangeInput('stick_range_y',+this.value,'hintRangeY',v=>v,'cfgRangeYNum')">
+            <div class="range-labels"><span>50</span><span>511</span></div>
+          </div>
+
+          <div class="form-group">
             <label class="form-label" for="cfgEmaAlpha">
               EMA アルファ&nbsp;<span class="val-badge" id="hintEmaAlpha">0.40</span>
             </label>
@@ -269,6 +287,18 @@
                 onchange="onNumInput('stick_deadzone','cfgDeadzoneNum','cfgDeadzone','hintDeadzone',1,false)">
             </div>
             <div class="num-field">
+              <label class="form-label-sm">Range X</label>
+              <input type="number" class="form-num" id="cfgRangeXNum"
+                min="50" max="511" value="511"
+                onchange="onNumInput('stick_range_x','cfgRangeXNum','cfgRangeX','hintRangeX',1,false)">
+            </div>
+            <div class="num-field">
+              <label class="form-label-sm">Range Y</label>
+              <input type="number" class="form-num" id="cfgRangeYNum"
+                min="50" max="511" value="511"
+                onchange="onNumInput('stick_range_y','cfgRangeYNum','cfgRangeY','hintRangeY',1,false)">
+            </div>
+            <div class="num-field">
               <label class="form-label-sm">EMA Alpha</label>
               <input type="number" class="form-num" id="cfgEmaAlphaNum"
                 min="0.01" max="1.0" step="0.01" value="0.40"
@@ -317,6 +347,53 @@
     </section><!-- /panel-right -->
 
   </main>
+
+  <!-- キャリブレーションモーダル -->
+  <div id="calibModal" class="modal-overlay" style="display:none;" onclick="calibOverlayClick(event)">
+    <div class="modal-box">
+      <button class="modal-close" onclick="calibCancel()">✕</button>
+      <h3 class="modal-title">スティックキャリブレーション</h3>
+
+      <!-- Phase 1: 中央 -->
+      <div id="calibPhase1">
+        <p class="calib-instruction">スティックを<strong>中央（ニュートラル）</strong>に置いて、<br>「中央を記録」を押してください。</p>
+        <div class="calib-center-btns">
+          <button class="btn btn-primary" onclick="calibRecordCenter()">中央を記録</button>
+        </div>
+      </div>
+
+      <!-- Phase 2: 範囲 -->
+      <div id="calibPhase2" style="display:none;">
+        <p class="calib-instruction">スティックを<strong>全方向にゆっくり回して</strong>ください。<br>端まで届いたら「完了」を押してください。</p>
+        <div class="calib-canvas-wrap">
+          <canvas id="calibCanvas" width="180" height="180"></canvas>
+        </div>
+        <div class="calib-info" id="calibInfo">記録中...</div>
+        <button class="btn btn-primary btn-full" onclick="calibFinish()">完了</button>
+      </div>
+
+      <!-- Phase 3: 結果 -->
+      <div id="calibPhase3" style="display:none;">
+        <p class="calib-instruction">キャリブレーション完了！</p>
+        <table class="calib-result-table">
+          <tr><td>Center X</td><td id="calibResX">-</td></tr>
+          <tr><td>Center Y</td><td id="calibResY">-</td></tr>
+          <tr><td>Range X</td><td id="calibResRX">-</td></tr>
+          <tr><td>Range Y</td><td id="calibResRY">-</td></tr>
+        </table>
+        <div class="calib-result-btns">
+          <button class="btn btn-primary" onclick="calibApply()">適用して保存</button>
+          <button class="btn btn-secondary" onclick="calibCancel()">キャンセル</button>
+        </div>
+      </div>
+
+      <!-- BLE用メッセージ -->
+      <div id="calibBLEMsg" style="display:none;">
+        <p class="calib-instruction">キャリブレーションは<strong>USB接続</strong>のみ対応しています。<br>USBで接続してから再度お試しください。</p>
+        <button class="btn btn-secondary btn-full" onclick="calibCancel()">閉じる</button>
+      </div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>

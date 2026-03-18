@@ -134,45 +134,50 @@ function kcName(v) {
 const UNIT = 44; // px / 1u
 const GAP  = 4;  // px
 
-// レイアウト: 各行 [{idx, u, label}]
+// レイアウト: 各行 [{idx, u, label} | {gap, u}]
 // u: キー幅 (単位u), label: オプション表示ラベル (省略時はキーコードラベルを表示)
+// gap: true のとき不可視スペーサー (u分の幅を空ける)
+// 実際の物理レイアウト (keyboard-layout.json より)
 const KEY_ROWS = [
-  // Row0: マウスボタン (独立行)
+  // Row0: マウスボタン — sw1(1.5u) ... 12u空白 ... sw62(1.5u)
   { cls: 'key-row-mouse', keys: [
-    { idx: 0, u: 1, label: 'Btn1' },
-    { idx: 1, u: 1, label: 'Btn2' },
+    { idx: 0, u: 1.5, label: 'Btn1' },
+    { gap: true, u: 12 },
+    { idx: 1, u: 1.5, label: 'Btn2' },
   ]},
-  // Row1: 数字行 (15u)
+  // Row1: 数字行 15x1u
   { keys: [
     { idx: 2,  u: 1 }, { idx: 3,  u: 1 }, { idx: 4,  u: 1 }, { idx: 5,  u: 1 },
     { idx: 6,  u: 1 }, { idx: 7,  u: 1 }, { idx: 8,  u: 1 }, { idx: 9,  u: 1 },
     { idx: 10, u: 1 }, { idx: 11, u: 1 }, { idx: 12, u: 1 }, { idx: 13, u: 1 },
     { idx: 14, u: 1 }, { idx: 15, u: 1 }, { idx: 16, u: 1 },
   ]},
-  // Row2: Q行 (15u) — BSpc 2u
+  // Row2: Q行 — 1.5u + 12x1u + 1.5u
   { keys: [
-    { idx: 17, u: 1 }, { idx: 18, u: 1 }, { idx: 19, u: 1 }, { idx: 20, u: 1 },
-    { idx: 21, u: 1 }, { idx: 22, u: 1 }, { idx: 23, u: 1 }, { idx: 24, u: 1 },
-    { idx: 25, u: 1 }, { idx: 26, u: 1 }, { idx: 27, u: 1 }, { idx: 28, u: 1 },
-    { idx: 29, u: 1 }, { idx: 30, u: 2 },
+    { idx: 17, u: 1.5 }, { idx: 18, u: 1 }, { idx: 19, u: 1 }, { idx: 20, u: 1 },
+    { idx: 21, u: 1   }, { idx: 22, u: 1 }, { idx: 23, u: 1 }, { idx: 24, u: 1 },
+    { idx: 25, u: 1   }, { idx: 26, u: 1 }, { idx: 27, u: 1 }, { idx: 28, u: 1 },
+    { idx: 29, u: 1   }, { idx: 30, u: 1.5 },
   ]},
-  // Row3: A行 (15u) — Tab 1.5u, Enter 1.5u
+  // Row3: A行 — 1.75u + 12x1u + 1.25u
   { keys: [
-    { idx: 31, u: 1.5 }, { idx: 32, u: 1 }, { idx: 33, u: 1 }, { idx: 34, u: 1 },
-    { idx: 35, u: 1   }, { idx: 36, u: 1 }, { idx: 37, u: 1 }, { idx: 38, u: 1 },
-    { idx: 39, u: 1   }, { idx: 40, u: 1 }, { idx: 41, u: 1 }, { idx: 42, u: 1 },
-    { idx: 43, u: 1   }, { idx: 44, u: 1.5 },
+    { idx: 31, u: 1.75 }, { idx: 32, u: 1 }, { idx: 33, u: 1 }, { idx: 34, u: 1 },
+    { idx: 35, u: 1    }, { idx: 36, u: 1 }, { idx: 37, u: 1 }, { idx: 38, u: 1 },
+    { idx: 39, u: 1    }, { idx: 40, u: 1 }, { idx: 41, u: 1 }, { idx: 42, u: 1 },
+    { idx: 43, u: 1    }, { idx: 44, u: 1.25 },
   ]},
-  // Row4: Z行 (15u) — LShift 4u
+  // Row4: Z行 — 2u空白(スティック) + 11x1u + 1.5u(LShift)
   { keys: [
+    { gap: true, u: 2 },
     { idx: 45, u: 1 }, { idx: 46, u: 1 }, { idx: 47, u: 1 }, { idx: 48, u: 1 },
     { idx: 49, u: 1 }, { idx: 50, u: 1 }, { idx: 51, u: 1 }, { idx: 52, u: 1 },
-    { idx: 53, u: 1 }, { idx: 54, u: 1 }, { idx: 55, u: 1 }, { idx: 56, u: 4 },
+    { idx: 53, u: 1 }, { idx: 54, u: 1 }, { idx: 55, u: 1 }, { idx: 56, u: 1.5 },
   ]},
-  // Row5: 底面 (15u) — Space 9u, 1u×4, MO(1) 2u
+  // Row5: 底面 — 6u空白(スティック) + 2.5u(Space) + 5x1u
   { keys: [
-    { idx: 57, u: 9 }, { idx: 58, u: 1 }, { idx: 59, u: 1 },
-    { idx: 60, u: 1 }, { idx: 61, u: 1 }, { idx: 62, u: 2 },
+    { gap: true, u: 6 },
+    { idx: 57, u: 2.5 }, { idx: 58, u: 1 }, { idx: 59, u: 1 },
+    { idx: 60, u: 1   }, { idx: 61, u: 1 }, { idx: 62, u: 1 },
   ]},
   // DirectKeys
   { cls: 'key-row-direct', keys: [
@@ -269,10 +274,12 @@ const BLE_BATTERY_CHAR  = 0x2a19;
 // ===================================================
 function getDefaultConfig() {
   return {
-    version:         1,
+    version:         2,
     stick_center_x:  512,
     stick_center_y:  512,
     stick_deadzone:  75,
+    stick_range_x:   511,
+    stick_range_y:   511,
     stick_ema_alpha: 0.4,
     mouse_max_speed: 0.8,
     scroll_max_speed:0.06,
@@ -306,6 +313,15 @@ function buildKeyboard() {
     rowEl.className = 'key-row' + (rowDef.cls ? ' ' + rowDef.cls : '');
 
     for (const kd of rowDef.keys) {
+      // スペーサー
+      if (kd.gap) {
+        const spacer = document.createElement('div');
+        spacer.className = 'key-spacer';
+        spacer.style.width = Math.round(kd.u * UNIT + (kd.u - 1) * GAP) + 'px';
+        rowEl.appendChild(spacer);
+        continue;
+      }
+
       const keyEl = document.createElement('div');
       const pxW = Math.round(kd.u * UNIT + (kd.u - 1) * GAP);
       keyEl.className = 'key';
@@ -339,6 +355,7 @@ function buildKeyboard() {
 function renderKeyboard() {
   for (const rowDef of KEY_ROWS) {
     for (const kd of rowDef.keys) {
+      if (kd.gap) continue;
       const idx   = kd.idx;
       const kcode = keymapData[currentLayer][idx];
       const keyEl = document.querySelector(`.key[data-idx="${idx}"]`);
@@ -559,6 +576,17 @@ function onBLEDisconnected() {
   battChar    = null;
 }
 
+function onUSBDisconnected(event) {
+  if (event.target === usbPort || connMode === 'usb') {
+    navigator.serial.removeEventListener('disconnect', onUSBDisconnected);
+    usbReadable = null;
+    usbWriter   = null;
+    usbPort     = null;
+    setConnState('disconnected');
+    addLog('warn', 'USB接続が切断されました');
+  }
+}
+
 // ===================================================
 // 13. USB Serial 接続 / 切断
 // ===================================================
@@ -578,6 +606,8 @@ async function connectUSB() {
 
     usbReadable = usbPort.readable;
     usbWriter   = usbPort.writable.getWriter();
+
+    navigator.serial.addEventListener('disconnect', onUSBDisconnected);
 
     setConnState('connected');
     addLog('ok', 'USB Serial 接続完了');
@@ -692,28 +722,168 @@ async function saveToDevice() {
 // ===================================================
 // 18. キャリブレーション
 // ===================================================
-async function calibrateDevice() {
+
+// キャリブレーション状態
+let calibRunning = false;
+let calibCenterX = 512, calibCenterY = 512;
+let calibMinX = 512, calibMaxX = 512;
+let calibMinY = 512, calibMaxY = 512;
+let calibAnimId = null;
+
+function calibrateDevice() {
   if (connState !== 'connected') { addLog('warn', '接続されていません'); return; }
+
+  // フェーズリセット
+  document.getElementById('calibPhase1').style.display = '';
+  document.getElementById('calibPhase2').style.display = 'none';
+  document.getElementById('calibPhase3').style.display = 'none';
+  document.getElementById('calibBLEMsg').style.display = 'none';
+
+  if (connMode === 'ble') {
+    document.getElementById('calibPhase1').style.display = 'none';
+    document.getElementById('calibBLEMsg').style.display = '';
+  }
+
+  document.getElementById('calibModal').style.display = '';
+}
+
+async function calibRecordCenter() {
   try {
-    addLog('info', 'キャリブレーション実行中...');
-    if (connMode === 'ble') {
-      // keymapChar経由でCALIBRATEキーコードを一時的に使う代わりに
-      // configCharへのダミー書き込みでリクエストする方法もあるが、
-      // FWではCALIBRATEコマンドをシリアル経由で使用するのが確実なため
-      // BLE接続時はLayer0のKey0に一時的にKC_CALIBRATEを割り当てて保存後に元に戻す
-      addLog('warn', 'BLE経由のキャリブレーションはFW側でCALIBRATE押下が必要です');
-      addLog('info', 'キーマップに KC_CALIBRATE キーが含まれる場合はそのキーを押してください');
-    } else {
-      await usbSendCommand('CALIBRATE');
-      const resp = await usbReadLine(3000);
-      if (resp.includes('OK')) {
-        addLog('ok', 'キャリブレーション完了');
-      } else {
-        addLog('warn', `応答: ${resp}`);
-      }
-    }
+    await usbSendCommand('CALIB_START');
+    await usbReadLine(1000);  // "OK"
+    await usbSendCommand('READ_STICK');
+    const line = await usbReadLine(3000);
+    const m = line.match(/STICK:(\d+),(\d+)/);
+    if (!m) throw new Error(`応答パースエラー: ${line}`);
+    calibCenterX = parseInt(m[1]);
+    calibCenterY = parseInt(m[2]);
+    calibMinX = calibCenterX; calibMaxX = calibCenterX;
+    calibMinY = calibCenterY; calibMaxY = calibCenterY;
+
+    document.getElementById('calibPhase1').style.display = 'none';
+    document.getElementById('calibPhase2').style.display = '';
+    calibRunning = true;
+    calibLoop();
+    addLog('info', `センター記録: X=${calibCenterX}, Y=${calibCenterY}`);
   } catch (err) {
-    addLog('error', `キャリブレーションエラー: ${err.message}`);
+    addLog('error', `センター記録エラー: ${err.message}`);
+  }
+}
+
+async function calibLoop() {
+  if (!calibRunning) return;
+  try {
+    await usbSendCommand('READ_STICK');
+    const line = await usbReadLine(1000);
+    const m = line.match(/STICK:(\d+),(\d+)/);
+    if (m) {
+      const x = parseInt(m[1]);
+      const y = parseInt(m[2]);
+      if (x < calibMinX) calibMinX = x;
+      if (x > calibMaxX) calibMaxX = x;
+      if (y < calibMinY) calibMinY = y;
+      if (y > calibMaxY) calibMaxY = y;
+      calibDrawCanvas(x, y);
+      document.getElementById('calibInfo').textContent =
+        `X: ${x}  (${calibMinX}～${calibMaxX})   Y: ${y}  (${calibMinY}～${calibMaxY})`;
+    }
+  } catch (_) {}
+  if (calibRunning) {
+    calibAnimId = setTimeout(calibLoop, 50);
+  }
+}
+
+function calibDrawCanvas(x, y) {
+  const canvas = document.getElementById('calibCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#1e1e2e';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(2, 2, W - 4, H - 4);
+
+  ctx.strokeStyle = '#555';
+  ctx.beginPath();
+  ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H);
+  ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2);
+  ctx.stroke();
+
+  // 記録済み範囲ボックス
+  const rxL = Math.round((calibMinX / 1023) * W);
+  const rxR = Math.round((calibMaxX / 1023) * W);
+  const ryT = Math.round((calibMinY / 1023) * H);
+  const ryB = Math.round((calibMaxY / 1023) * H);
+  ctx.strokeStyle = '#a6e3a1';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(rxL, ryT, rxR - rxL, ryB - ryT);
+
+  // 現在位置
+  const px = Math.round((x / 1023) * W);
+  const py = Math.round((y / 1023) * H);
+  ctx.fillStyle = '#89b4fa';
+  ctx.beginPath();
+  ctx.arc(px, py, 5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function calibFinish() {
+  calibRunning = false;
+  if (calibAnimId) { clearTimeout(calibAnimId); calibAnimId = null; }
+
+  const rangeX = Math.max(calibMaxX - calibCenterX, calibCenterX - calibMinX);
+  const rangeY = Math.max(calibMaxY - calibCenterY, calibCenterY - calibMinY);
+
+  document.getElementById('calibResX').textContent  = calibCenterX;
+  document.getElementById('calibResY').textContent  = calibCenterY;
+  document.getElementById('calibResRX').textContent = rangeX;
+  document.getElementById('calibResRY').textContent = rangeY;
+
+  document.getElementById('calibPhase2').style.display = 'none';
+  document.getElementById('calibPhase3').style.display = '';
+}
+
+async function calibApply() {
+  const rangeX = Math.max(calibMaxX - calibCenterX, calibCenterX - calibMinX);
+  const rangeY = Math.max(calibMaxY - calibCenterY, calibCenterY - calibMinY);
+
+  config.stick_center_x = calibCenterX;
+  config.stick_center_y = calibCenterY;
+  config.stick_range_x  = Math.max(rangeX, 50);
+  config.stick_range_y  = Math.max(rangeY, 50);
+
+  syncConfigToForm();
+
+  try {
+    // スティック処理を再開してから設定だけ保存（キーマップは触らない）
+    await usbSendCommand('CALIB_END');
+    await usbReadLine(1000);  // "OK"
+    await usbSaveConfig();
+    addLog('ok', `キャリブレーション適用: CX=${calibCenterX}, CY=${calibCenterY}, RX=${rangeX}, RY=${rangeY}`);
+  } catch (err) {
+    addLog('error', `保存エラー: ${err.message}`);
+  }
+
+  document.getElementById('calibModal').style.display = 'none';
+}
+
+function calibCancel() {
+  calibRunning = false;
+  if (calibAnimId) { clearTimeout(calibAnimId); calibAnimId = null; }
+  document.getElementById('calibModal').style.display = 'none';
+  // スティック処理を再開（キャリブ中断時）
+  if (connState === 'connected' && connMode === 'usb') {
+    usbSendCommand('CALIB_END').catch(() => {});
+  }
+}
+
+function calibOverlayClick(event) {
+  if (event.target === document.getElementById('calibModal')) {
+    calibCancel();
   }
 }
 
@@ -773,7 +943,7 @@ async function bleSaveKeymap() {
 // ===================================================
 async function bleLoadConfig() {
   const val = await configChar.readValue();
-  if (val.byteLength < 30) throw new Error(`configデータ長不正: ${val.byteLength} bytes`);
+  if (val.byteLength < 34) throw new Error(`configデータ長不正: ${val.byteLength} bytes`);
   parseConfigBinary(val.buffer);
   syncConfigToForm();
   addLog('info', `設定読み込み: ${val.byteLength} bytes`);
@@ -877,10 +1047,10 @@ async function usbSaveKeymap() {
 async function usbLoadConfig() {
   await usbSendCommand('READ_CONFIG');
   await sleep(200);
-  const buf = await usbReadBytes(30, 3000);
+  const buf = await usbReadBytes(34, 3000);
   parseConfigBinary(buf);
   syncConfigToForm();
-  addLog('info', 'USB: 設定読み込み完了 (30 bytes)');
+  addLog('info', 'USB: 設定読み込み完了 (34 bytes)');
 }
 
 async function usbSaveConfig() {
@@ -924,19 +1094,21 @@ function buildKeymapBinary() {
 // ===================================================
 // 26. コンフィグバイナリ変換
 // ===================================================
-// Config構造体 (packed, 30バイト)
+// Config構造体 (packed, 34バイト) v2
 // Offset 0:  uint8_t  version
 // Offset 1:  uint16_t stick_center_x   LE
 // Offset 3:  uint16_t stick_center_y   LE
 // Offset 5:  uint16_t stick_deadzone   LE
-// Offset 7:  float32  stick_ema_alpha  LE
-// Offset 11: float32  mouse_max_speed  LE
-// Offset 15: float32  scroll_max_speed LE
-// Offset 19: uint32_t sleep_timeout_ms LE
-// Offset 23: uint8_t  led_brightness
-// Offset 24: uint16_t blink_interval_ms LE
-// Offset 26: uint32_t magic LE  = 0x504F5441
-// Total: 30 bytes
+// Offset 7:  uint16_t stick_range_x    LE
+// Offset 9:  uint16_t stick_range_y    LE
+// Offset 11: float32  stick_ema_alpha  LE
+// Offset 15: float32  mouse_max_speed  LE
+// Offset 19: float32  scroll_max_speed LE
+// Offset 23: uint32_t sleep_timeout_ms LE
+// Offset 27: uint8_t  led_brightness
+// Offset 28: uint16_t blink_interval_ms LE
+// Offset 30: uint32_t magic LE  = 0x504F5441
+// Total: 34 bytes
 
 function parseConfigBinary(buf) {
   const view = new DataView(buf instanceof ArrayBuffer ? buf : buf.buffer);
@@ -944,29 +1116,33 @@ function parseConfigBinary(buf) {
   config.stick_center_x   = view.getUint16(1,  true);
   config.stick_center_y   = view.getUint16(3,  true);
   config.stick_deadzone   = view.getUint16(5,  true);
-  config.stick_ema_alpha  = view.getFloat32(7, true);
-  config.mouse_max_speed  = view.getFloat32(11,true);
-  config.scroll_max_speed = view.getFloat32(15,true);
-  config.sleep_timeout_ms = view.getUint32(19, true);
-  config.led_brightness   = view.getUint8(23);
-  config.blink_interval_ms= view.getUint16(24, true);
-  config.magic            = view.getUint32(26, true);
+  config.stick_range_x    = view.getUint16(7,  true);
+  config.stick_range_y    = view.getUint16(9,  true);
+  config.stick_ema_alpha  = view.getFloat32(11,true);
+  config.mouse_max_speed  = view.getFloat32(15,true);
+  config.scroll_max_speed = view.getFloat32(19,true);
+  config.sleep_timeout_ms = view.getUint32(23, true);
+  config.led_brightness   = view.getUint8(27);
+  config.blink_interval_ms= view.getUint16(28, true);
+  config.magic            = view.getUint32(30, true);
 }
 
 function buildConfigBinary() {
-  const buf  = new ArrayBuffer(30);
+  const buf  = new ArrayBuffer(34);
   const view = new DataView(buf);
   view.setUint8(0,   config.version);
   view.setUint16(1,  config.stick_center_x,   true);
   view.setUint16(3,  config.stick_center_y,   true);
   view.setUint16(5,  config.stick_deadzone,   true);
-  view.setFloat32(7, config.stick_ema_alpha,  true);
-  view.setFloat32(11,config.mouse_max_speed,  true);
-  view.setFloat32(15,config.scroll_max_speed, true);
-  view.setUint32(19, config.sleep_timeout_ms, true);
-  view.setUint8(23,  config.led_brightness);
-  view.setUint16(24, config.blink_interval_ms,true);
-  view.setUint32(26, 0x504F5441,              true); // magic "POTA"
+  view.setUint16(7,  config.stick_range_x,    true);
+  view.setUint16(9,  config.stick_range_y,    true);
+  view.setFloat32(11,config.stick_ema_alpha,  true);
+  view.setFloat32(15,config.mouse_max_speed,  true);
+  view.setFloat32(19,config.scroll_max_speed, true);
+  view.setUint32(23, config.sleep_timeout_ms, true);
+  view.setUint8(27,  config.led_brightness);
+  view.setUint16(28, config.blink_interval_ms,true);
+  view.setUint32(30, 0x504F5441,              true); // magic "POTA"
   return buf;
 }
 
@@ -979,6 +1155,8 @@ function syncConfigToForm() {
   setSlider('cfgCenterX',      'hintCenterX',      config.stick_center_x,    v=>Math.round(v),       v=>String(Math.round(v)));
   setSlider('cfgCenterY',      'hintCenterY',      config.stick_center_y,    v=>Math.round(v),       v=>String(Math.round(v)));
   setSlider('cfgDeadzone',     'hintDeadzone',     config.stick_deadzone,    v=>Math.round(v),       v=>String(Math.round(v)));
+  setSlider('cfgRangeX',       'hintRangeX',       config.stick_range_x,     v=>Math.round(v),       v=>String(Math.round(v)));
+  setSlider('cfgRangeY',       'hintRangeY',       config.stick_range_y,     v=>Math.round(v),       v=>String(Math.round(v)));
   setSlider('cfgEmaAlpha',     'hintEmaAlpha',     config.stick_ema_alpha,   v=>Math.round(v*100),   v=>v.toFixed(2));
   setSlider('cfgMouseSpeed',   'hintMouseSpeed',   config.mouse_max_speed,   v=>Math.round(v*100),   v=>v.toFixed(2));
   setSlider('cfgScrollSpeed',  'hintScrollSpeed',  config.scroll_max_speed,  v=>Math.round(v*100),   v=>v.toFixed(2));
@@ -990,6 +1168,8 @@ function syncConfigToForm() {
   setNum('cfgCenterXNum',      config.stick_center_x,    0);
   setNum('cfgCenterYNum',      config.stick_center_y,    0);
   setNum('cfgDeadzoneNum',     config.stick_deadzone,    0);
+  setNum('cfgRangeXNum',       config.stick_range_x,     0);
+  setNum('cfgRangeYNum',       config.stick_range_y,     0);
   setNum('cfgEmaAlphaNum',     config.stick_ema_alpha,   2);
   setNum('cfgMouseSpeedNum',   config.mouse_max_speed,   2);
   setNum('cfgScrollSpeedNum',  config.scroll_max_speed,  2);
