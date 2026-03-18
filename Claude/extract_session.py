@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 
 
 _possible_dirs = [
+    Path.home() / ".claude" / "projects" / "C--Users-user-Documents-project",
     Path.home() / ".claude" / "projects" / "-home-user-Projects-PotaKB",
     Path.home() / ".claude" / "projects" / "D--Projects-PotaKB",
     Path.home() / ".claude" / "projects" / "C--Users-yuu-Documents-PotaKB-PotaKB",

@@ -79,7 +79,7 @@ KC_MS_*      = 0x2001〜0x200D
 HID標準      = USB HID spec値そのまま
 ```
 
-### Config構造体（packed、34バイト、CONFIG_VERSION=2）
+### Config構造体（packed、35バイト、CONFIG_VERSION=3）
 
 ```c
 uint8_t  version;           // offset 0
@@ -124,7 +124,7 @@ CALIB_END   → "OK\n"  スティック処理を再開
 
 `program/PotaKB_fw/PotaKB_Configurator/index.html` をChrome/Edgeで開く。
 
-- BLE接続: デバイス名 `PotaKB`
+- BLE接続: デバイス名 `PotaKB-1` / `PotaKB-2` / `PotaKB-3`（namePrefix: 'PotaKB' でフィルタ）
 - USB Serial接続: VID=`0x239A` / PID=`0x8029`
 - キー選択 → パレットクリック or **「⌨ キー入力」ボタン**で物理キー割り当て
 

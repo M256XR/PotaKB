@@ -2,6 +2,13 @@
 
 ## セッション別索引
 
+### Session04 (2026-03-18) - 2026-03-18_Session04.txt
+- L1: BLEスロット別ボンドDB分離（bonding.cpp: bond_set_slot()追加、per-slotディレクトリ）
+- L80: USB自動切替エッジ検出（prev_usb_mounted フラグ）
+- L120: スリープ復帰バグ修正（wakeUp()でaccumulator/lastStickUpdateTimeリセット）
+- L160: Configurator修正（namePrefix BLEフィルタ、35バイトconfig読み込み、自動バッテリー取得）
+- L220: GitHub push・README更新・GitHub Pages(M256XR.github.io/poke)更新
+
 ### Session03 (2026-03-18) - 2026-03-18_Session03.txt
 - L1: script.js キャリブレーション関数群実装（calibrateDevice/calibLoop/calibApply等）
 - L50: keyboard-layout.json（KLE）解析・Configuratorキービジュアルを実物レイアウトに修正
@@ -41,12 +48,17 @@
 ### Bluetooth
 - BT1/BT2/BT3+USB 4モード設計: S01 L30
 - BLE接続間隔 7.5ms設定: S01 L100
+- スロット別ボンドDB分離（bonding.cpp bond_set_slot）: S04 L1
+- BLEフィルタ namePrefix 対応（PotaKB-1/2/3）: S04 L160
 
 ### Configurator
 - v2.0フルリライト: S01 L200
 - キー入力キャプチャ機能: S01 L280
 - Config 30バイト packed構造体: S01 L200
 - Config 34バイト v2（stick_range_x/y追加）: S03 L1
+- Config 35バイト v3（scroll_invert追加）: S04（via S04スクロール反転）
 - キービジュアル実物レイアウト修正（KLEから）: S03 L50
 - キャリブレーションモーダルUI: S03 L1
 - USB切断イベント検知: S03 L1
+- USB Config読み込み35バイト修正（RangeError fix）: S04 L160
+- BLE/USB接続時バッテリー自動取得: S04 L160
