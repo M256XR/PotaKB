@@ -54,11 +54,12 @@ struct Config {
   uint32_t sleep_timeout_ms;  // offset 23
   uint8_t  led_brightness;    // offset 27
   uint16_t blink_interval_ms; // offset 28
-  uint32_t magic;             // offset 30 = 0x504F5441
+  uint8_t  scroll_invert;     // offset 30  0=通常, 1=反転
+  uint32_t magic;             // offset 31 = 0x504F5441
 };
 #pragma pack(pop)
 
-#define CONFIG_VERSION  2
+#define CONFIG_VERSION  3
 #define CONFIG_MAGIC    0x504F5441UL  // "POTA"
 
 // =========================================================================
@@ -71,6 +72,25 @@ enum OperatingMode : uint8_t {
   MODE_BT3 = 3,
   MODE_COUNT = 4
 };
+
+// =========================================================================
+// BLE スロット別アドレス・名前
+// =========================================================================
+static const char* BT_SLOT_NAMES[3] = { "PotaKB-1", "PotaKB-2", "PotaKB-3" };
+
+// ハードウェアUID からスロットごとに固有の Random Static アドレスを生成
+void getSlotAddr(uint8_t slot, ble_gap_addr_t* addr) {
+  addr->addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC;
+  uint32_t uid0 = NRF_FICR->DEVICEID[0];
+  uint32_t uid1 = NRF_FICR->DEVICEID[1];
+  addr->addr[0] = (uid0      ) & 0xFF;
+  addr->addr[1] = (uid0 >>  8) & 0xFF;
+  addr->addr[2] = (uid0 >> 16) & 0xFF;
+  addr->addr[3] = (uid0 >> 24) & 0xFF;
+  addr->addr[4] = (uid1      ) & 0xFF;
+  // 上位バイト: bit7:6=11(Random Static必須), bit5:4=スロット番号, bit3:0=UID由来
+  addr->addr[5] = 0xC0 | ((slot & 0x03) << 4) | ((uid1 >> 8) & 0x0F);
+}
 
 // =========================================================================
 // BLE UUID
@@ -88,10 +108,58 @@ Adafruit_MCP23X17 mcp;
 
 // --- HID ---
 Adafruit_USBD_HID usb_hid;
+
+// USB HID descriptor: keyboard(ID=1) + hi-res mouse(ID=2)
 static const uint8_t hid_desc[] = {
   TUD_HID_REPORT_DESC_KEYBOARD(HID_REPORT_ID(1)),
-  TUD_HID_REPORT_DESC_MOUSE(HID_REPORT_ID(2))
+  // Mouse with Resolution Multiplier (hi-res scroll)
+  0x05,0x01, 0x09,0x02, 0xA1,0x01,
+    0x85,0x02,
+    0x09,0x01, 0xA1,0x00,
+      0x05,0x09, 0x19,0x01, 0x29,0x05,
+      0x15,0x00, 0x25,0x01, 0x95,0x05, 0x75,0x01, 0x81,0x02,
+      0x95,0x01, 0x75,0x03, 0x81,0x03,
+      0x05,0x01, 0x09,0x30, 0x09,0x31,
+      0x16,0x01,0x80, 0x26,0xFF,0x7F,
+      0x95,0x02, 0x75,0x10, 0x81,0x06,
+      0x09,0x38,
+      0xA1,0x02,
+        0x05,0x01, 0x09,0x48,
+        0x15,0x00, 0x25,0x01, 0x35,0x01, 0x45,0x78,
+        0x95,0x01, 0x75,0x02, 0xB1,0x02,
+        0x95,0x01, 0x75,0x06, 0xB1,0x03,
+        0x05,0x01, 0x09,0x38,
+        0x16,0x01,0x80, 0x26,0xFF,0x7F,
+        0x35,0x00, 0x45,0x00,
+        0x95,0x01, 0x75,0x10, 0x81,0x06,
+      0xC0,
+    0xC0,
+  0xC0,
 };
+
+// hi-res mouse report struct (Report ID 2)
+struct __attribute__((packed)) UsbMouseReport {
+  uint8_t buttons;
+  int16_t x, y, wheel;
+};
+
+volatile uint8_t g_usb_res_mult = 1;  // 1=通常, 120=hi-res
+
+uint16_t usb_get_report_cb(uint8_t report_id, hid_report_type_t type,
+                            uint8_t* buf, uint16_t req_len) {
+  if (type == HID_REPORT_TYPE_FEATURE && report_id == 2) {
+    buf[0] = (g_usb_res_mult == 120) ? 0x01 : 0x00;
+    return 1;
+  }
+  return 0;
+}
+
+void usb_set_report_cb(uint8_t report_id, hid_report_type_t type,
+                        uint8_t const* buf, uint16_t len) {
+  if (type == HID_REPORT_TYPE_FEATURE && report_id == 2 && len >= 1) {
+    g_usb_res_mult = ((buf[0] & 0x03) == 1) ? 120 : 1;
+  }
+}
 
 // --- BLE ---
 BLEDis        bledis;
@@ -134,6 +202,10 @@ float smoothed_x = 512.0f;
 float smoothed_y = 512.0f;
 unsigned long lastStickUpdateTime = 0;
 
+// --- スクロール速度スムージング（カクつき防止）---
+float smooth_scroll_v = 0.0f;  // Y軸スクロール速度（EMA後）
+float smooth_scroll_h = 0.0f;  // X軸スクロール速度（EMA後）
+
 // --- マウスアキュムレータ ---
 float acc_mouse_x = 0.0f;
 float acc_mouse_y = 0.0f;
@@ -154,6 +226,12 @@ bool isSleeping = false;
 // --- バッテリー ---
 unsigned long lastBatteryTime = 0;
 int lastBatteryTier = -1;
+
+// --- BLE 接続インターバル再交渉 ---
+unsigned long ble_connect_time    = 0;
+unsigned long ble_last_param_req  = 0;
+bool          ble_param_needed    = false;
+unsigned long ble_switch_done_at  = 0;  // switchMode完了時刻
 
 // --- BLEデータ受信バッファ ---
 uint8_t  keymap_buf[sizeof(current_keymap)];
@@ -216,6 +294,16 @@ void onConfigWrite(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data, uin
 // setup
 // =========================================================================
 void setup() {
+  // 電源スイッチを最初にチェック（initHardware前 = LED点灯前）
+  // USB給電でブートした場合もOFF状態なら起動しない
+  pinMode(POWER_SW_PIN, INPUT_PULLUP);
+  if (digitalRead(POWER_SW_PIN) == HIGH) {
+    // USB接続中はSYSTEMOFFが即リセットを引き起こすが、
+    // setup()先頭から再実行されるためLEDは点灯しない
+    NRF_POWER->SYSTEMOFF = 1;
+    while (1);  // SYSTEMOFF後は来ない（安全のため）
+  }
+
   Serial.begin(115200);
 
   TinyUSBDevice.setID(0x239A, 0x8029);
@@ -267,6 +355,30 @@ void loop() {
     Bluefruit.Advertising.stop();
     startAdvertising(0);
     updateLED();
+  }
+
+  // USBケーブル接続検出（BTモード中にUSBを刺した瞬間だけUSBモードへ。手動でBTにしたままUSBを刺し続けた場合は切り替えない）
+  static bool prev_usb_mounted = false;
+  bool usb_now = TinyUSBDevice.mounted();
+  if (currentMode != MODE_USB && usb_now && !prev_usb_mounted) {
+    switchMode(MODE_USB);
+  }
+  prev_usb_mounted = usb_now;
+
+  // BLE 接続インターバル再交渉 (7.5ms = interval 6)
+  if (ble_param_needed && Bluefruit.connected()) {
+    unsigned long now_ms = millis();
+    // switchMode完了から2秒以上経過した接続にのみ要求（切替直後の不安定状態を避ける）
+    if (now_ms - ble_switch_done_at >= 2000 &&
+        ble_connect_time >= ble_switch_done_at) {
+      uint16_t hdl = Bluefruit.connHandle();
+      BLEConnection* conn = Bluefruit.Connection(hdl);
+      if (conn && ((ble_last_param_req == 0 && now_ms - ble_connect_time >= 1000) ||
+                   (ble_last_param_req != 0 && now_ms - ble_last_param_req >= 10000))) {
+        conn->requestConnectionParameter(6, 0, 200);
+        ble_last_param_req = now_ms;
+      }
+    }
   }
 
   // シリアルコマンド処理
@@ -328,6 +440,7 @@ void initHardware() {
   // USB HID
   usb_hid.setPollInterval(1);
   usb_hid.setReportDescriptor(hid_desc, sizeof(hid_desc));
+  usb_hid.setReportCallback(usb_get_report_cb, usb_set_report_cb);
   usb_hid.begin();
 
   // MCP23017
@@ -582,16 +695,22 @@ void processInputs() {
   bool sendMouse = (now - lastMouseReportTime >= mouse_interval);
 
   int8_t mx = 0, my = 0, scroll = 0, pan = 0;
+  int16_t scroll_hires = 0;
   if (sendMouse) {
     lastMouseReportTime = now;
     mx = (int8_t)constrain((int)acc_mouse_x, -127, 127);
     my = (int8_t)constrain((int)acc_mouse_y, -127, 127);
     acc_mouse_x -= mx;
     acc_mouse_y -= my;
-    scroll = (int8_t)constrain((int)acc_scroll, -127, 127);
-    pan    = (int8_t)constrain((int)acc_pan,    -127, 127);
-    acc_scroll -= scroll;
-    acc_pan    -= pan;
+    if (currentMode == MODE_USB && g_usb_res_mult == 120) {
+      scroll_hires = (int16_t)constrain((int)(acc_scroll * 120.0f), -32767, 32767);
+      acc_scroll  -= scroll_hires / 120.0f;
+    } else {
+      scroll = (int8_t)constrain((int)acc_scroll, -127, 127);
+      pan    = (int8_t)constrain((int)acc_pan,    -127, 127);
+      acc_scroll -= scroll;
+      acc_pan    -= pan;
+    }
   }
 
   // --- キーボードレポート送信（変化時のみ）---
@@ -609,11 +728,14 @@ void processInputs() {
 
   // --- マウスレポート送信 ---
   if (sendMouse) {
-    bool hasMotion = (mx || my || scroll || pan || mouse_btn || mouse_btn != prev_mouse_btn);
+    bool hasMotion = (mx || my || scroll || scroll_hires || pan || mouse_btn != prev_mouse_btn);
     if (hasMotion) {
       if (currentMode == MODE_USB) {
-        if (TinyUSBDevice.mounted() && usb_hid.ready())
-          usb_hid.mouseReport(2, mouse_btn, mx, my, scroll, pan);
+        if (TinyUSBDevice.mounted() && usb_hid.ready()) {
+          UsbMouseReport rep = { mouse_btn, mx, my,
+            (g_usb_res_mult == 120) ? scroll_hires : (int16_t)scroll };
+          usb_hid.sendReport(2, &rep, sizeof(rep));
+        }
       } else {
         if (Bluefruit.connected())
           blehid.mouseReport(mouse_btn, mx, my, scroll, pan);
@@ -676,6 +798,10 @@ void updateStick(unsigned long now) {
     acc_mouse_x = constrain(acc_mouse_x, -127.0f, 127.0f);
     acc_mouse_y = constrain(acc_mouse_y, -127.0f, 127.0f);
 
+    // スクロールモードに切り替わった瞬間のバーストを防ぐ
+    smooth_scroll_v = 0.0f;
+    smooth_scroll_h = 0.0f;
+
   } else {
     // --- スクロールモード（Lowerレイヤー）---
     auto calcScrollSpeed = [&](float diff, float range) -> float {
@@ -685,12 +811,34 @@ void updateStick(unsigned long now) {
       return copysignf(norm * norm * currentConfig.scroll_max_speed, diff);
     };
 
-    // Y軸→縦スクロール（上方向が負）
-    float sv = calcScrollSpeed(diff_y, (float)currentConfig.stick_range_y);
-    float sh = calcScrollSpeed(diff_x, (float)currentConfig.stick_range_x);
+    float sv_raw = calcScrollSpeed(diff_y, (float)currentConfig.stick_range_y);
+    float sh_raw = calcScrollSpeed(diff_x, (float)currentConfig.stick_range_x);
 
-    acc_scroll += -sv * dt;  // スティック上 = スクロールアップ
-    acc_pan    +=  sh * dt;
+    float sa = currentConfig.stick_ema_alpha;
+
+    // スティックがデッドゾーン内 → モメンタム減衰（半減期 ~200ms）
+    // スティックが動いている  → EMAで速度追従
+    // 定数 0.0035 = ln(2)/200
+    if (diff_y != 0.0f) {
+      // ゼロから動き始めた瞬間は即時スナップ（EMAのランプアップ遅延を排除）
+      if (smooth_scroll_v == 0.0f) smooth_scroll_v = sv_raw;
+      else smooth_scroll_v = sa * sv_raw + (1.0f - sa) * smooth_scroll_v;
+    } else {
+      smooth_scroll_v *= fmaxf(0.0f, 1.0f - 0.0035f * dt);
+      if (fabsf(smooth_scroll_v) < 0.0001f) smooth_scroll_v = 0.0f;
+    }
+    if (diff_x != 0.0f) {
+      if (smooth_scroll_h == 0.0f) smooth_scroll_h = sh_raw;
+      else smooth_scroll_h = sa * sh_raw + (1.0f - sa) * smooth_scroll_h;
+    } else {
+      smooth_scroll_h *= fmaxf(0.0f, 1.0f - 0.0035f * dt);
+      if (fabsf(smooth_scroll_h) < 0.0001f) smooth_scroll_h = 0.0f;
+    }
+
+    // scroll_invert: 1=方向反転
+    float scroll_sign = currentConfig.scroll_invert ? 1.0f : -1.0f;
+    acc_scroll += scroll_sign * smooth_scroll_v * dt;
+    acc_pan    += smooth_scroll_h * dt;
 
     acc_scroll = constrain(acc_scroll, -127.0f, 127.0f);
     acc_pan    = constrain(acc_pan,    -127.0f, 127.0f);
@@ -705,15 +853,17 @@ void updateStick(unsigned long now) {
 // switchMode
 // =========================================================================
 void switchMode(OperatingMode newMode) {
+  ble_param_needed = false;  // 切替中は再交渉を止める
   // 現在のBT接続を切断
   if (currentMode != MODE_USB && Bluefruit.connected()) {
     Bluefruit.disconnect(Bluefruit.connHandle());
-    delay(100);
+    delay(200);  // 切断完了を待つ
   }
   Bluefruit.Advertising.stop();
 
   currentMode = newMode;
   saveMode(newMode);
+  ble_switch_done_at = millis();  // 切替完了時刻を記録
 
   if (newMode == MODE_USB) {
     // USBモード
@@ -732,6 +882,7 @@ void switchMode(OperatingMode newMode) {
 // BLE初期化
 // =========================================================================
 void initBLE() {
+  Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);  // hvn_qsize=3: BLE Hz向上
   Bluefruit.begin();
   Bluefruit.autoConnLed(false);
   Bluefruit.Periph.setConnInterval(6, 6);  // 7.5ms
@@ -769,11 +920,14 @@ void initBLE() {
 // startAdvertising: btSlot = 0/1/2
 // =========================================================================
 void startAdvertising(uint8_t btSlot) {
-  // スロットごとにボンド情報を切り替え
-  // Bluefruit ライブラリはボンド管理を内部でやるので、
-  // スロット切替は一旦全ボンドをクリアせずアドバタイズ開始
-  // （ペアリング済なら自動再接続、未ペアリングなら新規ペアリング）
-  // ※ 本格的な複数ボンド管理は将来拡張ポイント
+  // スロット別のボンドDBディレクトリを切り替え（同一PC複数スロット接続に対応）
+  bond_set_slot(btSlot);
+
+  // スロット別の BLE アドレスと名前を設定
+  ble_gap_addr_t addr;
+  getSlotAddr(btSlot, &addr);
+  Bluefruit.setAddr(&addr);
+  Bluefruit.setName(BT_SLOT_NAMES[btSlot]);
 
   Bluefruit.Advertising.clearData();
   Bluefruit.ScanResponse.clearData();
@@ -798,6 +952,9 @@ void onConnect(uint16_t conn_handle) {
   keymap_buf_offset = 0;
   config_buf_offset = 0;
   lastBatteryTier = -1;
+  ble_connect_time   = millis();
+  ble_last_param_req = 0;
+  ble_param_needed   = true;
   updateBattery();
   // 接続時に現在のキーマップ・設定をBLEキャラクタリスティックに反映
   keymapChar.write((uint8_t*)current_keymap, sizeof(current_keymap));
@@ -806,6 +963,7 @@ void onConnect(uint16_t conn_handle) {
 }
 
 void onDisconnect(uint16_t conn_handle, uint8_t reason) {
+  ble_param_needed = false;
   lastActivityTime = millis();
   updateLED();
 }
@@ -949,9 +1107,17 @@ void updateLED() {
       analogWrite(BT_LED_PIN, 0);
       break;
 
-    case MODE_BT1: case MODE_BT2: case MODE_BT3:
-      // 青（接続中）or 青点滅（アドバタイズ中）
-      analogWrite(LED_RED, 255); analogWrite(LED_GREEN, 255); analogWrite(LED_BLUE, 0);
+    case MODE_BT1:
+    case MODE_BT2:
+    case MODE_BT3: {
+      // BT1=青, BT2=シアン(青+緑), BT3=マゼンタ(赤+青)
+      if (currentMode == MODE_BT1) {
+        analogWrite(LED_RED, 255); analogWrite(LED_GREEN, 255); analogWrite(LED_BLUE, 0);
+      } else if (currentMode == MODE_BT2) {
+        analogWrite(LED_RED, 255); analogWrite(LED_GREEN, 0);   analogWrite(LED_BLUE, 0);
+      } else {
+        analogWrite(LED_RED, 0);   analogWrite(LED_GREEN, 255); analogWrite(LED_BLUE, 0);
+      }
       if (Bluefruit.connected()) {
         analogWrite(BT_LED_PIN, currentConfig.led_brightness);
       } else {
@@ -963,6 +1129,7 @@ void updateLED() {
         }
       }
       break;
+    }
   }
 }
 
@@ -1014,6 +1181,7 @@ void loadDefaultConfig() {
   currentConfig.sleep_timeout_ms  = DEFAULT_SLEEP_TIMEOUT_MS;
   currentConfig.led_brightness    = DEFAULT_LED_BRIGHTNESS;
   currentConfig.blink_interval_ms = DEFAULT_BLINK_INTERVAL_MS;
+  currentConfig.scroll_invert     = DEFAULT_SCROLL_INVERT;
   currentConfig.magic             = CONFIG_MAGIC;
 }
 

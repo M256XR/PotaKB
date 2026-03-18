@@ -46,6 +46,42 @@
 
 ## 直近の決定事項ログ
 
+### 2026-03-18（session04・続き3）
+- スクロールモメンタム（慣性）実装（FW）
+  - スティックがデッドゾーン内のとき、EMAで即ゼロではなく半減期200msの指数減衰
+  - スティックが動いているときはEMAで速度追従（変更なし）
+  - 定数: 0.0035/ms = ln(2)/200ms
+  - 効果: スティックを離した後もスクロールがなめらかに減速
+- スクロール初期速度を 0.06 → 0.02 tick/ms に変更（速すぎた）
+- スクロール反転が効かない件: コードは正しい。Configuratorで「デバイスへ保存する」が必要
+
+### 2026-03-18（session04・続き2）
+- Arduino IDEなしの書き込み環境を `tools/` に構築
+  - `setup.ps1`: arduino-cli DL + Adafruit nRF52 コア + ライブラリ一括セットアップ（tools/内に閉じ込め）
+  - `build.ps1`: コンパイル（FQBN: adafruit:nrf52:Seeed_XIAO_nRF52840）
+  - `flash.ps1`: シリアルDFU書き込み（COMポート自動検出 or -Port 指定）
+  - `flash_uf2.ps1`: UF2ブートローダー経由書き込み（XIAO_BOOTドライブ自動検出）
+
+### 2026-03-18（session04・続き）
+- スクロール方向反転設定を追加（Config + Configurator）
+  - Config struct に `scroll_invert`(uint8) 追加 → 35バイト、CONFIG_VERSION=3
+  - magic オフセット 30→31 に移動
+  - Configurator「スクロール方向を反転」チェックボックス追加
+- スクロールスムージング改善（FW）
+  - `smooth_scroll_v / smooth_scroll_h` グローバル変数を追加
+  - スクロール速度にEMA適用（`stick_ema_alpha` を流用）
+  - マウスモード中はスクロール速度変数をリセット（モード切替時バースト防止）
+  - 効果: 速度変化が徐々になるため整数HIDステップの間隔が均等化→カクつき軽減
+
+### 2026-03-18（session04）
+- キャリブレーション画面のスティック上下逆バグ修正（Configurator）
+  - `calibDrawCanvas` でY軸を反転: `py = ((1023-y)/1023)*H`、範囲ボックスも同様
+  - 原因: FWでは「Y値大＝上方向」だがキャンバスはY=0が上なので逆になっていた
+- 電源OFF状態でUSB接続時に赤ランプ点灯＋スリープ入りするバグ修正（FW）
+  - `setup()` の冒頭（`initHardware()`前）で POWER_SW_PIN を確認追加
+  - HIGH（OFF状態）なら即 `NRF_POWER->SYSTEMOFF = 1` → LED点灯前に終了
+  - USB接続時はSYSTEMOFFがリセットを引き起こすが setup()先頭から再実行されるためLED不点灯
+
 ### 2026-03-18（session03）
 - スティックキャリブレーション機能を実装（Configurator UI + FWコマンド）
   - Config構造体に stick_range_x/y 追加（30→34バイト、CONFIG_VERSION=2）

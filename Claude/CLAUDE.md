@@ -94,14 +94,15 @@ float    scroll_max_speed;  // offset 19
 uint32_t sleep_timeout_ms;  // offset 23
 uint8_t  led_brightness;    // offset 27
 uint16_t blink_interval_ms; // offset 28
-uint32_t magic;             // offset 30 = 0x504F5441 "POTA"
+uint8_t  scroll_invert;     // offset 30  0=通常, 1=反転
+uint32_t magic;             // offset 31 = 0x504F5441 "POTA"
 ```
 
 ### BLE GATT
 
 - Service: `adaf0001-c332-42a8-93bd-25e905756cb8`
 - Keymap Char: `adaf0002-...` (260バイト: 2レイヤー×65キー×uint16 LE)
-- Config Char: `adaf0003-...` (30バイト)
+- Config Char: `adaf0003-...` (35バイト)
 - BLE接続間隔: 7.5ms (interval=6)
 
 ### USB Serial コマンド

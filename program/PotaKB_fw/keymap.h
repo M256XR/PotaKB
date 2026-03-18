@@ -76,10 +76,11 @@
 #define DEFAULT_STICK_RANGE_Y     511
 #define DEFAULT_STICK_EMA_ALPHA   0.4f   // スムージング係数 (0=最大平滑, 1=なし)
 #define DEFAULT_MOUSE_MAX_SPEED   0.8f   // px/ms（deltaTime方式）
-#define DEFAULT_SCROLL_MAX_SPEED  0.06f  // tick/ms
+#define DEFAULT_SCROLL_MAX_SPEED  0.02f  // tick/ms
 #define DEFAULT_SLEEP_TIMEOUT_MS  300000UL
 #define DEFAULT_LED_BRIGHTNESS    25
 #define DEFAULT_BLINK_INTERVAL_MS 600
+#define DEFAULT_SCROLL_INVERT     0
 
 // -------------------------------------------------------------------------
 // デフォルトキーマップ

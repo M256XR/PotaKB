@@ -274,7 +274,7 @@ const BLE_BATTERY_CHAR  = 0x2a19;
 // ===================================================
 function getDefaultConfig() {
   return {
-    version:         2,
+    version:         3,
     stick_center_x:  512,
     stick_center_y:  512,
     stick_deadzone:  75,
@@ -286,6 +286,7 @@ function getDefaultConfig() {
     sleep_timeout_ms:300000,
     led_brightness:  25,
     blink_interval_ms:600,
+    scroll_invert:   0,
     magic:           0x504F5441,
   };
 }
@@ -537,7 +538,7 @@ async function connectBLE() {
     addLog('info', 'Bluetooth デバイスをスキャン中...');
 
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [{ name: 'PotaKB' }],
+      filters: [{ namePrefix: 'PotaKB' }],
       optionalServices: [BLE_SERVICE_UUID, BLE_BATTERY_SVC],
     });
 
@@ -561,6 +562,7 @@ async function connectBLE() {
 
     setConnState('connected');
     addLog('ok', 'Bluetooth 接続完了');
+    getBattery();
   } catch (err) {
     setConnState('disconnected');
     addLog('error', `BLE接続エラー: ${err.message}`);
@@ -611,6 +613,7 @@ async function connectUSB() {
 
     setConnState('connected');
     addLog('ok', 'USB Serial 接続完了');
+    getBattery();
   } catch (err) {
     setConnState('disconnected');
     addLog('error', `USB接続エラー: ${err.message}`);
@@ -813,18 +816,18 @@ function calibDrawCanvas(x, y) {
   ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2);
   ctx.stroke();
 
-  // 記録済み範囲ボックス
+  // 記録済み範囲ボックス（Y軸反転: キャンバスY=0が上、FWはY値大=上方向）
   const rxL = Math.round((calibMinX / 1023) * W);
   const rxR = Math.round((calibMaxX / 1023) * W);
-  const ryT = Math.round((calibMinY / 1023) * H);
-  const ryB = Math.round((calibMaxY / 1023) * H);
+  const ryT = Math.round(((1023 - calibMaxY) / 1023) * H);
+  const ryB = Math.round(((1023 - calibMinY) / 1023) * H);
   ctx.strokeStyle = '#a6e3a1';
   ctx.lineWidth = 1;
   ctx.strokeRect(rxL, ryT, rxR - rxL, ryB - ryT);
 
-  // 現在位置
+  // 現在位置（Y軸反転）
   const px = Math.round((x / 1023) * W);
-  const py = Math.round((y / 1023) * H);
+  const py = Math.round(((1023 - y) / 1023) * H);
   ctx.fillStyle = '#89b4fa';
   ctx.beginPath();
   ctx.arc(px, py, 5, 0, Math.PI * 2);
@@ -1047,10 +1050,10 @@ async function usbSaveKeymap() {
 async function usbLoadConfig() {
   await usbSendCommand('READ_CONFIG');
   await sleep(200);
-  const buf = await usbReadBytes(34, 3000);
+  const buf = await usbReadBytes(35, 3000);
   parseConfigBinary(buf);
   syncConfigToForm();
-  addLog('info', 'USB: 設定読み込み完了 (34 bytes)');
+  addLog('info', 'USB: 設定読み込み完了 (35 bytes)');
 }
 
 async function usbSaveConfig() {
@@ -1094,7 +1097,7 @@ function buildKeymapBinary() {
 // ===================================================
 // 26. コンフィグバイナリ変換
 // ===================================================
-// Config構造体 (packed, 34バイト) v2
+// Config構造体 (packed, 35バイト) v3
 // Offset 0:  uint8_t  version
 // Offset 1:  uint16_t stick_center_x   LE
 // Offset 3:  uint16_t stick_center_y   LE
@@ -1107,8 +1110,9 @@ function buildKeymapBinary() {
 // Offset 23: uint32_t sleep_timeout_ms LE
 // Offset 27: uint8_t  led_brightness
 // Offset 28: uint16_t blink_interval_ms LE
-// Offset 30: uint32_t magic LE  = 0x504F5441
-// Total: 34 bytes
+// Offset 30: uint8_t  scroll_invert  (0=通常, 1=反転)
+// Offset 31: uint32_t magic LE  = 0x504F5441
+// Total: 35 bytes
 
 function parseConfigBinary(buf) {
   const view = new DataView(buf instanceof ArrayBuffer ? buf : buf.buffer);
@@ -1124,11 +1128,12 @@ function parseConfigBinary(buf) {
   config.sleep_timeout_ms = view.getUint32(23, true);
   config.led_brightness   = view.getUint8(27);
   config.blink_interval_ms= view.getUint16(28, true);
-  config.magic            = view.getUint32(30, true);
+  config.scroll_invert    = view.getUint8(30);
+  config.magic            = view.getUint32(31, true);
 }
 
 function buildConfigBinary() {
-  const buf  = new ArrayBuffer(34);
+  const buf  = new ArrayBuffer(35);
   const view = new DataView(buf);
   view.setUint8(0,   config.version);
   view.setUint16(1,  config.stick_center_x,   true);
@@ -1142,7 +1147,8 @@ function buildConfigBinary() {
   view.setUint32(23, config.sleep_timeout_ms, true);
   view.setUint8(27,  config.led_brightness);
   view.setUint16(28, config.blink_interval_ms,true);
-  view.setUint32(30, 0x504F5441,              true); // magic "POTA"
+  view.setUint8(30,  config.scroll_invert ? 1 : 0);
+  view.setUint32(31, 0x504F5441,              true); // magic "POTA"
   return buf;
 }
 
@@ -1163,6 +1169,10 @@ function syncConfigToForm() {
   setSlider('cfgSleepTimeout', 'hintSleepTimeout', config.sleep_timeout_ms,  v=>Math.round(v/1000),  v=>String(Math.round(v/1000)));
   setSlider('cfgLedBrightness','hintLedBrightness',config.led_brightness,    v=>Math.round(v),       v=>String(Math.round(v)));
   setSlider('cfgBlinkInterval','hintBlinkInterval',config.blink_interval_ms, v=>Math.round(v),       v=>String(Math.round(v)));
+
+  // チェックボックス
+  const scrollInvertEl = document.getElementById('cfgScrollInvert');
+  if (scrollInvertEl) scrollInvertEl.checked = !!config.scroll_invert;
 
   // 数値入力フィールド
   setNum('cfgCenterXNum',      config.stick_center_x,    0);

@@ -1,0 +1,8 @@
+# Arduino CLI ビルド成果物・パッケージ（再インストール可能）
+tools/.arduino-data/
+tools/.build/
+tools/arduino-cli.exe
+
+# Windows
+Thumbs.db
+Desktop.ini
