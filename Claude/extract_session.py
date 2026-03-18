@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 _possible_dirs = [
     Path.home() / ".claude" / "projects" / "-home-user-Projects-PotaKB",
     Path.home() / ".claude" / "projects" / "D--Projects-PotaKB",
+    Path.home() / ".claude" / "projects" / "C--Users-yuu-Documents-PotaKB-PotaKB",
 ]
 JSONL_DIR = next((d for d in _possible_dirs if d.exists()), _possible_dirs[0])
 LOG_DIR   = Path(__file__).parent / "chat_logs" / "原文"
