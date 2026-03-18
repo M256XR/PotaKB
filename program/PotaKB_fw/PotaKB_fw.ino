@@ -1078,6 +1078,19 @@ void goSleep() {
 void wakeUp() {
   isSleeping = false;
   lastActivityTime = millis();
+
+  // スリープ中に時間が経過しているのでdtが巨大にならないようリセット
+  lastStickUpdateTime = millis();
+
+  // スティック・スクロールアキュムレータをクリア（起床直後の誤入力防止）
+  acc_mouse_x = acc_mouse_y = acc_scroll = acc_pan = 0.0f;
+  smooth_scroll_v = smooth_scroll_h = 0.0f;
+
+  // 前回レポート状態をリセットして起床後に確実に送信
+  prev_kb_mod = 0xFF;
+  memset(prev_kb_keys, 0xFF, 6);
+  prev_mouse_btn = 0xFF;
+
   analogWrite(POWER_LED_PIN, currentConfig.led_brightness);
   updateLED();
 }
